@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Jarvis Cinematic Engine</title>
+<title>Jarvis Cinematic Engine – Advanced</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
@@ -10,9 +10,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
 <style>
-body { margin:0; overflow:hidden; background:black; }
-#video { display:none; }
-.hud {
+body{margin:0;overflow:hidden;background:black}
+#video{display:none}
+.hud{
   position:fixed;
   top:10px;
   left:50%;
@@ -20,83 +20,106 @@ body { margin:0; overflow:hidden; background:black; }
   color:#00ffff;
   font-family:monospace;
   font-size:13px;
-  opacity:0.7;
+  opacity:.75
 }
 </style>
 </head>
 
 <body>
 <video id="video" autoplay playsinline></video>
-<div class="hud" id="hud">SYSTEM ONLINE</div>
+<div class="hud" id="hud">JARVIS ONLINE</div>
 
 <script>
-/* =======================
+/* =========================
    BASIC SETUP
-======================= */
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 100);
-camera.position.z = 6;
+========================= */
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,0.1,100);
+camera.position.z=6;
 
-const renderer = new THREE.WebGLRenderer({ antialias:true });
-renderer.setSize(innerWidth, innerHeight);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
 document.body.appendChild(renderer.domElement);
 
-/* =======================
-   STATE MACHINE
-======================= */
-const MODES = {
-  IDLE: "IDLE",
-  COMPRESS: "COMPRESS",
-  SCAN: "SCAN",
-  ROTATE: "ROTATE",
-  LOCK: "LOCK"
-};
-let currentMode = MODES.IDLE;
-let lastGestureTime = 0;
+/* =========================
+   STATES
+========================= */
+const MODES={IDLE:0,SCAN:1};
+let currentMode=MODES.IDLE;
 
-/* =======================
+/* =========================
+   AUDIO (MIC)
+========================= */
+let audioLevel=0;
+navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
+  const ctx=new AudioContext();
+  const src=ctx.createMediaStreamSource(stream);
+  const analyser=ctx.createAnalyser();
+  analyser.fftSize=256;
+  src.connect(analyser);
+  const data=new Uint8Array(analyser.frequencyBinCount);
+
+  function audioLoop(){
+    analyser.getByteFrequencyData(data);
+    let sum=0;
+    for(let i=0;i<20;i++) sum+=data[i];
+    audioLevel=sum/20/255;
+    requestAnimationFrame(audioLoop);
+  }
+  audioLoop();
+}).catch(()=>{ audioLevel=0; });
+
+/* =========================
    ENERGY CORE
-======================= */
-const CORE_COUNT = 2200;
-const coreGeo = new THREE.BufferGeometry();
-const corePos = new Float32Array(CORE_COUNT*3);
+========================= */
+const COUNT=2400;
+const basePositions=new Float32Array(COUNT*3);
+const positions=new Float32Array(COUNT*3);
 
-for(let i=0;i<CORE_COUNT;i++){
+for(let i=0;i<COUNT;i++){
   const u=Math.random();
   const v=Math.random();
-  const theta=2*Math.PI*u;
-  const phi=Math.acos(2*v-1);
+  const t=2*Math.PI*u;
+  const p=Math.acos(2*v-1);
   const r=1.6;
-  corePos[i*3]=r*Math.sin(phi)*Math.cos(theta);
-  corePos[i*3+1]=r*Math.cos(phi);
-  corePos[i*3+2]=r*Math.sin(phi)*Math.sin(theta);
+  const x=r*Math.sin(p)*Math.cos(t);
+  const y=r*Math.cos(p);
+  const z=r*Math.sin(p)*Math.sin(t);
+  basePositions.set([x,y,z],i*3);
+  positions.set([x,y,z],i*3);
 }
-coreGeo.setAttribute("position", new THREE.BufferAttribute(corePos,3));
 
-const coreMat = new THREE.ShaderMaterial({
+const geo=new THREE.BufferGeometry();
+geo.setAttribute("position",new THREE.BufferAttribute(positions,3));
+
+const mat=new THREE.ShaderMaterial({
   uniforms:{
     time:{value:0},
-    strength:{value:1},
+    scan:{value:0},
+    audio:{value:0},
     color:{value:new THREE.Color(0x00ffff)}
   },
   vertexShader:`
     uniform float time;
-    uniform float strength;
-    varying float vPulse;
+    uniform float scan;
+    uniform float audio;
+    varying float vGlow;
     void main(){
       float d=length(position);
-      vPulse=0.6+0.4*sin(time*2.0+d*6.0);
-      vec3 pos=position+normalize(position)*vPulse*0.15*strength;
+      float pulse=0.7+0.3*sin(time*2.0+d*6.0);
+      float wave=smoothstep(scan-0.2,scan,d)*smoothstep(scan,scan-0.4,d);
+      vec3 pos=position+normalize(position)*(pulse*0.12+wave*0.6+audio*0.4);
+      vGlow=pulse+wave;
       gl_Position=projectionMatrix*modelViewMatrix*vec4(pos,1.0);
       gl_PointSize=3.0;
     }
   `,
   fragmentShader:`
     uniform vec3 color;
-    varying float vPulse;
+    varying float vGlow;
     void main(){
-      float g=clamp(vPulse,0.35,1.0);
+      float g=clamp(vGlow,0.35,1.0);
       gl_FragColor=vec4(color*g,g);
     }
   `,
@@ -105,107 +128,64 @@ const coreMat = new THREE.ShaderMaterial({
   depthWrite:false
 });
 
-const core = new THREE.Points(coreGeo, coreMat);
+const core=new THREE.Points(geo,mat);
 scene.add(core);
 
-/* =======================
-   HOLOGRAM RINGS
-======================= */
-const rings=[];
-for(let i=0;i<3;i++){
-  const geo=new THREE.RingGeometry(1.9+i*0.25,2.0+i*0.25,64);
-  const mat=new THREE.MeshBasicMaterial({
-    color:0x00ffff,
-    transparent:true,
-    opacity:0.15,
-    side:THREE.DoubleSide
-  });
-  const ring=new THREE.Mesh(geo,mat);
-  ring.rotation.x=Math.PI/2;
-  scene.add(ring);
-  rings.push(ring);
-}
-
-/* =======================
+/* =========================
    HAND TRACKING
-======================= */
+========================= */
 const video=document.getElementById("video");
 const hands=new Hands({
   locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
 });
-hands.setOptions({
-  maxNumHands:1,
-  modelComplexity:1,
-  minDetectionConfidence:0.7,
-  minTrackingConfidence:0.7
-});
+hands.setOptions({maxNumHands:1,minDetectionConfidence:.7,minTrackingConfidence:.7});
 
-function isFist(h){
-  return h[8].y>h[6].y && h[12].y>h[10].y && h[16].y>h[14].y;
-}
-function isOpenPalm(h){
-  return h[8].y<h[6].y && h[12].y<h[10].y;
+function isSwipe(h){
+  return Math.abs(h[8].x-h[5].x)>0.3;
 }
 
 hands.onResults(r=>{
   if(!r.multiHandLandmarks?.length) return;
   const h=r.multiHandLandmarks[0];
-  const now=performance.now();
-  if(now-lastGestureTime<700) return;
-
-  if(isFist(h)){
-    currentMode=MODES.COMPRESS;
-  }else if(isOpenPalm(h)){
-    currentMode=MODES.IDLE;
-  }
-
-  const index=h[8], thumb=h[4];
-  const pinch=Math.hypot(index.x-thumb.x,index.y-thumb.y);
-  if(pinch<0.05){
-    currentMode=MODES.LOCK;
-  }
-
-  lastGestureTime=now;
+  if(isSwipe(h)) currentMode=MODES.SCAN;
 });
 
 new Camera(video,{
-  onFrame:async()=>{ await hands.send({image:video}); },
+  onFrame:async()=>hands.send({image:video}),
   width:640,height:480,facingMode:"user"
 }).start();
 
-/* =======================
-   ANIMATION LOOP
-======================= */
-let last=0;
+/* =========================
+   ANIMATION
+========================= */
+let scanRadius=0;
+let exploding=false;
+
 function animate(t){
   requestAnimationFrame(animate);
-  if(t-last<30) return;
-  last=t;
 
-  coreMat.uniforms.time.value+=0.01;
+  mat.uniforms.time.value+=0.01;
+  mat.uniforms.audio.value=audioLevel;
 
-  if(currentMode===MODES.IDLE){
-    coreMat.uniforms.strength.value+= (1-coreMat.uniforms.strength.value)*0.05;
-    core.rotation.y+=0.002;
+  if(currentMode===MODES.SCAN){
+    scanRadius+=0.05;
+    if(scanRadius>4){
+      scanRadius=0;
+      currentMode=MODES.IDLE;
+    }
+    mat.uniforms.scan.value=scanRadius;
+  }else{
+    mat.uniforms.scan.value=-10;
   }
-  if(currentMode===MODES.COMPRESS){
-    coreMat.uniforms.strength.value+= (0.4-coreMat.uniforms.strength.value)*0.08;
-  }
-  if(currentMode===MODES.LOCK){
-    camera.position.z+= (4.2-camera.position.z)*0.05;
-  }
 
-  rings.forEach((r,i)=>{
-    r.rotation.z+=0.002*(i+1);
-  });
-
+  core.rotation.y+=0.002;
   renderer.render(scene,camera);
 }
 animate();
 
-/* =======================
+/* =========================
    RESIZE
-======================= */
+========================= */
 addEventListener("resize",()=>{
   camera.aspect=innerWidth/innerHeight;
   camera.updateProjectionMatrix();
