@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Jarvis Hand Control 3D</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Three.js -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+
+  <!-- MediaPipe -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+      touch-action: none;
+    }
+
+    #video {
+      display: none;
+    }
+
+    .hud {
+      position: fixed;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: cyan;
+      font-family: monospace;
+      font-size: 14px;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body>
+
+<video id="video" autoplay playsinline></video>
+<div class="hud">JARVIS HAND CONTROL — MOVE INDEX / PINCH</div>
+
+<script>
+/* =======================
+   THREE.JS SETUP
+======================= */
+
+const scene = new THREE.Scene();
+
+const camera = new THREE.PerspectiveCamera(
+  75,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000
+);
+camera.position.z = 5;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+document.body.appendChild(renderer.domElement);
+
+/* =======================
+   PARTICLE SYSTEM
+======================= */
+
+const particleCount = 1500;
+const geometry = new THREE.BufferGeometry();
+const positions = new Float32Array(particleCount * 3);
+
+for (let i = 0; i < particleCount * 3; i++) {
+  positions[i] = (Math.random() - 0.5) * 8;
+}
+
+geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+const material = new THREE.PointsMaterial({
+  color: 0x00ffff,
+  size: 0.04,
+  transparent: true,
+  opacity: 0.9
+});
+
+const particles = new THREE.Points(geometry, material);
+scene.add(particles);
+
+/* =======================
+   HAND TRACKING
+======================= */
+
+const videoElement = document.getElementById('video');
+
+const hands = new Hands({
+  locateFile: file =>
+    `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+});
+
+hands.setOptions({
+  maxNumHands: 1,
+  modelComplexity: 1,
+  minDetectionConfidence: 0.7,
+  minTrackingConfidence: 0.7
+});
+
+let targetRotX = 0;
+let targetRotY = 0;
+let targetZoom = camera.position.z;
+
+hands.onResults(results => {
+  if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+    return;
+  }
+
+  const hand = results.multiHandLandmarks[0];
+
+  const index = hand[8];
+  const thumb = hand[4];
+
+  // Mirror fix for front camera
+  const x = -(index.x - 0.5) * 2;
+  const y = (0.5 - index.y) * 2;
+
+  targetRotY = x * 1.5;
+  targetRotX = y * 1.5;
+
+  // Pinch detection (zoom)
+  const pinchDistance = Math.hypot(
+    thumb.x - index.x,
+    thumb.y - index.y
+  );
+
+  if (pinchDistance < 0.05) {
+    targetZoom -= 0.08;
+  } else {
+    targetZoom += 0.02;
+  }
+
+  targetZoom = THREE.MathUtils.clamp(targetZoom, 3, 8);
+});
+
+/* =======================
+   CAMERA INIT
+======================= */
+
+const cameraFeed = new Camera(videoElement, {
+  onFrame: async () => {
+    await hands.send({ image: videoElement });
+  },
+  width: 640,
+  height: 480,
+  facingMode: "user"
+});
+
+cameraFeed.start();
+
+/* =======================
+   ANIMATION LOOP
+======================= */
+
+let lastTime = 0;
+
+function animate(time) {
+  requestAnimationFrame(animate);
+
+  // Limit FPS for mobile
+  if (time - lastTime < 30) return;
+  lastTime = time;
+
+  // Smooth motion
+  particles.rotation.x += (targetRotX - particles.rotation.x) * 0.1;
+  particles.rotation.y += (targetRotY - particles.rotation.y) * 0.1;
+
+  camera.position.z += (targetZoom - camera.position.z) * 0.1;
+
+  // Idle rotation
+  particles.rotation.y += 0.002;
+
+  renderer.render(scene, camera);
+}
+
+animate();
+
+/* =======================
+   RESIZE
+======================= */
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+
+</body>
+</html>
