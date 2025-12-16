@@ -3,524 +3,639 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Advanced Holographic Interface</title>
+    <title>Jarvis Holographic Core | Biometric Interface</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-        }
         body {
-            background: #000;
-            font-family: 'Courier New', monospace;
-        }
-        #container {
-            width: 100vw;
-            height: 100vh;
-        }
-        #video {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            width: 160px;
-            height: 120px;
-            border: 1px solid rgba(0, 255, 255, 0.3);
-            display: none;
-        }
-        #controls {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: rgba(0, 255, 255, 0.9);
-            font-size: 13px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 15px;
-            border: 1px solid rgba(0, 255, 255, 0.3);
-            max-width: 300px;
-            z-index: 100;
-        }
-        #controls h3 {
-            margin-bottom: 10px;
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Courier New', Courier, monospace;
             color: #0ff;
         }
-        #controls div {
-            margin: 5px 0;
-            line-height: 1.6;
-        }
-        .gesture {
-            color: #0f0;
-            font-weight: bold;
-        }
-        #status {
+
+        #canvas-container {
             position: absolute;
-            bottom: 20px;
-            left: 20px;
-            color: rgba(0, 255, 255, 0.8);
-            font-size: 14px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 10px;
-            border: 1px solid rgba(0, 255, 255, 0.3);
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
         }
-        #transcript {
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #status-panel {
+            text-shadow: 0 0 10px #0ff;
+            background: rgba(0, 20, 40, 0.5);
+            padding: 15px;
+            border-left: 2px solid #0ff;
+            max-width: 300px;
+            backdrop-filter: blur(4px);
+        }
+
+        .hud-text {
+            font-size: 12px;
+            line-height: 1.5;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 0;
+        }
+
+        .hud-value {
+            font-weight: bold;
+            color: #fff;
+        }
+
+        #start-btn {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: transparent;
+            border: 1px solid #0ff;
+            color: #0ff;
+            padding: 15px 40px;
+            font-size: 16px;
+            font-family: inherit;
+            cursor: pointer;
+            pointer-events: all;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        #start-btn:hover {
+            background: rgba(0, 255, 255, 0.1);
+            box-shadow: 0 0 40px rgba(0, 255, 255, 0.6);
+        }
+
+        /* Video feed for debug (hidden by default, can toggle if needed) */
+        #video-feed {
             position: absolute;
             bottom: 20px;
             right: 20px;
-            color: rgba(0, 255, 255, 0.9);
-            font-size: 16px;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 15px;
-            border: 1px solid rgba(0, 255, 255, 0.5);
-            max-width: 400px;
-            display: none;
+            width: 160px;
+            height: 120px;
+            opacity: 0.3;
+            transform: scaleX(-1); /* Mirror */
+            border: 1px solid #0ff;
+            display: none; /* Hidden for cinematic feel */
         }
     </style>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 </head>
 <body>
-    <div id="container"></div>
-    <video id="video" playsinline></video>
-    
-    <div id="controls">
-        <h3>GESTURE CONTROLS</h3>
-        <div><span class="gesture">OPEN PALM</span> → Mandala Mode</div>
-        <div><span class="gesture">PEACE SIGN</span> → Helix Mode</div>
-        <div><span class="gesture">FIST</span> → Galaxy Mode</div>
-        <div><span class="gesture">POINTING UP</span> → Cube Mode</div>
-        <div><span class="gesture">THUMB UP</span> → Toggle Audio</div>
-        <div><span class="gesture">PINCH</span> → Speech to Text</div>
-        <div><span class="gesture">SWIPE LEFT</span> → Explode</div>
-        <div><span class="gesture">SWIPE RIGHT</span> → Reset</div>
-    </div>
-    
-    <div id="status">Initializing...</div>
-    <div id="transcript"></div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <div id="canvas-container"></div>
+    
+    <div id="ui-layer">
+        <div id="status-panel">
+            <p class="hud-text">SYS.STATUS: <span id="sys-status" class="hud-value">STANDBY</span></p>
+            <p class="hud-text">AUDIO.IN: <span id="audio-status" class="hud-value">INACTIVE</span></p>
+            <p class="hud-text">VISUAL.IN: <span id="vision-status" class="hud-value">SEARCHING</span></p>
+            <p class="hud-text" style="margin-top:10px; opacity:0.7;">GESTURES: PALM (Heal) | FIST (Break) | PINCH (Scan)</p>
+        </div>
+        <button id="start-btn">Initialize System</button>
+    </div>
+
+    <video id="video-feed" playsinline></video>
 
     <script>
-        // ============================================
-        // CONFIGURATION
-        // ============================================
-        
-        const CONFIG = {
-            particleCount: 15000,
-            textParticleSize: 0.08,
-            shapeTransitionSpeed: 1.5,
-            explodeSpeed: 2.0,
-            audioReactivity: 0.8
-        };
+    /**
+     * SENIOR ENGINEER IMPLEMENTATION NOTE:
+     * * Architecture:
+     * 1. App: Main controller, handles Three.js scene, loop, and uniforms.
+     * 2. AudioManager: Handles Web Audio API, FFT analysis.
+     * 3. VisionManager: Handles MediaPipe Hands, state detection.
+     * * Shaders are written in raw GLSL within the JS for single-file portability.
+     */
 
-        const STATE = {
-            mode: 'mandala', // mandala, helix, galaxy, cube
-            audioEnabled: false,
-            speechMode: false,
-            exploding: false,
-            explodeProgress: 0,
-            shapeProgress: 0,
-            targetShape: 'mandala',
-            lastGesture: 'none',
-            gestureStartPos: null,
-            recognizing: false,
-            lastTranscript: ''
-        };
+    // --- GLSL SHADERS ---
 
-        let scene, camera, renderer, particleSystem;
-        let audioContext, analyser, dataArray, microphone;
-        let recognition;
-        let textParticles = [];
+    const vertexShader = `
+        uniform float uTime;
+        uniform float uExplode;      // 0.0 = Organized, 1.0 = Exploded
+        uniform float uAudioLow;     // Bass for scaling
+        uniform float uScanRadius;   // Current radius of the scan wave
+        uniform float uScanActive;   // 0.0 or 1.0
 
-        // ============================================
-        // SCENE SETUP
-        // ============================================
-        
-        function initScene() {
-            scene = new THREE.Scene();
+        attribute vec3 basePosition; // Original resting position
+        attribute float aRandom;     // Random seed per particle
+
+        varying float vAlpha;
+        varying vec3 vColor;
+        varying float vDist;
+
+        // Simplex Noise (Lightweight implementation for movement)
+        vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+        vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+        vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+        vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+
+        float snoise(vec3 v) {
+            const vec2  C = vec2(1.0/6.0, 1.0/3.0);
+            const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
+            vec3 i  = floor(v + dot(v, C.yyy) );
+            vec3 x0 = v - i + dot(i, C.xxx) ;
+            vec3 g = step(x0.yzx, x0.xyz);
+            vec3 l = 1.0 - g;
+            vec3 i1 = min( g.xyz, l.zxy );
+            vec3 i2 = max( g.xyz, l.zxy );
+            vec3 x1 = x0 - i1 + C.xxx;
+            vec3 x2 = x0 - i2 + C.yyy;
+            vec3 x3 = x0 - D.yyy;
+            i = mod289(i);
+            vec4 p = permute( permute( permute( 
+                        i.z + vec4(0.0, i1.z, i2.z, 1.0 ))
+                      + i.y + vec4(0.0, i1.y, i2.y, 1.0 )) 
+                      + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
+            float n_ = 0.142857142857;
+            vec3  ns = n_ * D.wyz - D.xzx;
+            vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+            vec4 x_ = floor(j * ns.z);
+            vec4 y_ = floor(j - 7.0 * x_ );
+            vec4 x = x_ *ns.x + ns.yyyy;
+            vec4 y = y_ *ns.x + ns.yyyy;
+            vec4 h = 1.0 - abs(x) - abs(y);
+            vec4 b0 = vec4( x.xy, y.xy );
+            vec4 b1 = vec4( x.zw, y.zw );
+            vec4 s0 = floor(b0)*2.0 + 1.0;
+            vec4 s1 = floor(b1)*2.0 + 1.0;
+            vec4 sh = -step(h, vec4(0.0));
+            vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
+            vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
+            vec3 p0 = vec3(a0.xy,h.x);
+            vec3 p1 = vec3(a0.zw,h.y);
+            vec3 p2 = vec3(a1.xy,h.z);
+            vec3 p3 = vec3(a1.zw,h.w);
+            vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+            p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+            vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+            m = m * m;
+            return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) );
+        }
+
+        void main() {
+            // 1. Base Motion: Idle floating based on noise
+            float noiseVal = snoise(basePosition * 0.5 + uTime * 0.2);
+            vec3 noiseOffset = vec3(
+                snoise(basePosition * 1.0 + uTime * 0.1),
+                snoise(basePosition * 1.0 + uTime * 0.1 + 10.0),
+                snoise(basePosition * 1.0 + uTime * 0.1 + 20.0)
+            ) * 0.5; // Small organic float
+
+            // 2. Audio Reactivity (Breathing)
+            vec3 pos = basePosition + noiseOffset;
+            float pulse = 1.0 + (uAudioLow * 0.5); // Expand on bass
+            pos *= pulse;
+
+            // 3. Explosion Logic (Radial + Chaos)
+            vec3 explodeDir = normalize(basePosition);
+            // Mix between orderly sphere and exploded chaos
+            vec3 explodedPos = pos + (explodeDir * 15.0 * (aRandom + 0.5)) + (noiseOffset * 5.0);
             
-            camera = new THREE.PerspectiveCamera(
-                75,
-                window.innerWidth / window.innerHeight,
-                0.1,
-                1000
-            );
-            camera.position.z = 12;
+            // Smooth interpolation
+            vec3 finalPos = mix(pos, explodedPos, uExplode);
+
+            // 4. Scan Wave Logic
+            float distFromCenter = length(finalPos);
+            float waveWidth = 2.0;
+            float inScan = 0.0;
             
-            renderer = new THREE.WebGLRenderer({ 
-                antialias: true,
-                alpha: true 
+            if (uScanActive > 0.5) {
+                // Calculate if particle is inside the wave band
+                float distDiff = abs(distFromCenter - uScanRadius);
+                // Smoothstep for soft wave edges
+                inScan = 1.0 - smoothstep(0.0, waveWidth, distDiff);
+                
+                // Displace particles slightly when scanned
+                finalPos += normalize(finalPos) * inScan * 0.5;
+            }
+
+            // 5. Output
+            vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
+            gl_Position = projectionMatrix * mvPosition;
+
+            // Size calculation
+            // Base size + Audio kick + Scan boost
+            float size = (4.0 * (1.0 + uAudioLow)) + (inScan * 10.0);
+            
+            // Perspective attenuation (make distant particles smaller)
+            gl_PointSize = size * (300.0 / -mvPosition.z);
+
+            // Passing data to fragment
+            vAlpha = 0.6 + (inScan * 0.4); // Brighter if scanned
+            vDist = distFromCenter;
+            
+            // Color shift based on position/scan
+            vec3 baseColor = vec3(0.0, 0.8, 1.0); // Cyan
+            vec3 scanColor = vec3(1.0, 1.0, 1.0); // White hot
+            vColor = mix(baseColor, scanColor, inScan);
+        }
+    `;
+
+    const fragmentShader = `
+        uniform float uAudioMid;
+        varying float vAlpha;
+        varying vec3 vColor;
+
+        void main() {
+            // Circular Particle
+            vec2 coord = gl_PointCoord - vec2(0.5);
+            float dist = length(coord);
+            
+            if (dist > 0.5) discard;
+
+            // Radial Glow (Soft edge)
+            float glow = 1.0 - (dist * 2.0);
+            glow = pow(glow, 1.5); // Sharpen the falloff
+
+            // Audio Mid frequencies affect brightness
+            float brightness = 1.0 + uAudioMid * 2.0;
+
+            vec3 finalColor = vColor * brightness;
+
+            gl_FragColor = vec4(finalColor, vAlpha * glow);
+        }
+    `;
+
+    // --- SYSTEMS ---
+
+    class AudioManager {
+        constructor() {
+            this.context = null;
+            this.analyser = null;
+            this.dataArray = null;
+            this.active = false;
+            this.lows = 0;
+            this.mids = 0;
+        }
+
+        async init() {
+            try {
+                this.context = new (window.AudioContext || window.webkitAudioContext)();
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const source = this.context.createMediaStreamSource(stream);
+                
+                this.analyser = this.context.createAnalyser();
+                this.analyser.fftSize = 512;
+                source.connect(this.analyser);
+                
+                this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+                this.active = true;
+                
+                document.getElementById('audio-status').textContent = "ACTIVE";
+                document.getElementById('audio-status').style.color = "#0f0";
+            } catch (e) {
+                console.warn("Audio init failed:", e);
+                document.getElementById('audio-status').textContent = "DENIED";
+                document.getElementById('audio-status').style.color = "#f00";
+            }
+        }
+
+        update() {
+            if (!this.active) return;
+            
+            this.analyser.getByteFrequencyData(this.dataArray);
+            
+            // Calculate Bass (Lows) - approx first 10% of bins
+            let lowSum = 0;
+            const lowBins = Math.floor(this.dataArray.length * 0.1);
+            for(let i=0; i<lowBins; i++) lowSum += this.dataArray[i];
+            this.lows = (lowSum / lowBins) / 255; // Normalize 0-1
+
+            // Calculate Mids - approx middle 20%
+            let midSum = 0;
+            const midStart = Math.floor(this.dataArray.length * 0.2);
+            const midEnd = Math.floor(this.dataArray.length * 0.4);
+            for(let i=midStart; i<midEnd; i++) midSum += this.dataArray[i];
+            this.mids = (midSum / (midEnd - midStart)) / 255;
+        }
+    }
+
+    class VisionManager {
+        constructor(onGesture) {
+            this.hands = null;
+            this.camera = null;
+            this.onGesture = onGesture;
+            this.lastGesture = 'IDLE';
+            this.cooldown = 0;
+        }
+
+        init() {
+            const videoElement = document.getElementById('video-feed');
+            
+            this.hands = new Hands({locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+            }});
+
+            this.hands.setOptions({
+                maxNumHands: 1,
+                modelComplexity: 0, // Lite model for performance
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
             });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            document.getElementById('container').appendChild(renderer.domElement);
-        }
 
-        // ============================================
-        // PARTICLE GEOMETRY GENERATORS
-        // ============================================
-        
-        function generateMandalaPattern(count) {
-            const positions = [];
-            const layers = 8;
-            const pointsPerLayer = Math.floor(count / layers);
-            
-            for (let layer = 0; layer < layers; layer++) {
-                const radius = 2 + layer * 0.8;
-                const petals = 6 + layer * 2;
-                const heightOffset = (layer - layers / 2) * 0.3;
-                
-                for (let i = 0; i < pointsPerLayer; i++) {
-                    const angle = (i / pointsPerLayer) * Math.PI * 2;
-                    const petalAngle = Math.sin(angle * petals) * 0.5;
-                    const r = radius + petalAngle;
-                    
-                    const x = r * Math.cos(angle);
-                    const y = heightOffset + Math.sin(angle * petals * 2) * 0.2;
-                    const z = r * Math.sin(angle);
-                    
-                    positions.push(x, y, z);
-                }
-            }
-            
-            return positions;
-        }
+            this.hands.onResults(this.onResults.bind(this));
 
-        function generateHelixPattern(count) {
-            const positions = [];
-            const strands = 3;
-            const pointsPerStrand = Math.floor(count / strands);
-            
-            for (let strand = 0; strand < strands; strand++) {
-                const offset = (strand / strands) * Math.PI * 2;
-                
-                for (let i = 0; i < pointsPerStrand; i++) {
-                    const t = (i / pointsPerStrand) * Math.PI * 4;
-                    const radius = 2 + Math.sin(t * 2) * 0.5;
-                    
-                    const x = radius * Math.cos(t + offset);
-                    const y = (i / pointsPerStrand) * 8 - 4;
-                    const z = radius * Math.sin(t + offset);
-                    
-                    positions.push(x, y, z);
-                }
-            }
-            
-            return positions;
-        }
-
-        function generateGalaxyPattern(count) {
-            const positions = [];
-            const arms = 4;
-            
-            for (let i = 0; i < count; i++) {
-                const arm = Math.floor(Math.random() * arms);
-                const armAngle = (arm / arms) * Math.PI * 2;
-                const distance = Math.pow(Math.random(), 0.7) * 5;
-                const angle = armAngle + distance * 0.5 + (Math.random() - 0.5) * 0.5;
-                
-                const x = distance * Math.cos(angle);
-                const y = (Math.random() - 0.5) * 0.5 * distance;
-                const z = distance * Math.sin(angle);
-                
-                positions.push(x, y, z);
-            }
-            
-            return positions;
-        }
-
-        function generateCubePattern(count) {
-            const positions = [];
-            const gridSize = Math.ceil(Math.pow(count, 1/3));
-            const spacing = 8 / gridSize;
-            const offset = (gridSize * spacing) / 2;
-            
-            for (let i = 0; i < count; i++) {
-                const x = (i % gridSize) * spacing - offset;
-                const y = (Math.floor(i / gridSize) % gridSize) * spacing - offset;
-                const z = Math.floor(i / (gridSize * gridSize)) * spacing - offset;
-                
-                // Create cube shell effect
-                const distToEdge = Math.min(
-                    Math.abs(x + offset),
-                    Math.abs(y + offset),
-                    Math.abs(z + offset),
-                    Math.abs(offset - x),
-                    Math.abs(offset - y),
-                    Math.abs(offset - z)
-                );
-                
-                if (distToEdge < spacing * 2) {
-                    positions.push(x, y, z);
-                }
-            }
-            
-            return positions;
-        }
-
-        // ============================================
-        // PARTICLE SYSTEM
-        // ============================================
-        
-        function createParticleSystem() {
-            const geometry = new THREE.BufferGeometry();
-            
-            // Generate all shape patterns
-            const mandalaPos = generateMandalaPattern(CONFIG.particleCount);
-            const helixPos = generateHelixPattern(CONFIG.particleCount);
-            const galaxyPos = generateGalaxyPattern(CONFIG.particleCount);
-            const cubePos = generateCubePattern(CONFIG.particleCount);
-            
-            const actualCount = Math.min(
-                mandalaPos.length / 3,
-                helixPos.length / 3,
-                galaxyPos.length / 3,
-                cubePos.length / 3
-            );
-            
-            const positions = new Float32Array(actualCount * 3);
-            const mandala = new Float32Array(mandalaPos.slice(0, actualCount * 3));
-            const helix = new Float32Array(helixPos.slice(0, actualCount * 3));
-            const galaxy = new Float32Array(galaxyPos.slice(0, actualCount * 3));
-            const cube = new Float32Array(cubePos.slice(0, actualCount * 3));
-            const colors = new Float32Array(actualCount * 3);
-            const sizes = new Float32Array(actualCount);
-            const phases = new Float32Array(actualCount);
-            
-            for (let i = 0; i < actualCount; i++) {
-                const i3 = i * 3;
-                
-                // Start with mandala
-                positions[i3] = mandala[i3];
-                positions[i3 + 1] = mandala[i3 + 1];
-                positions[i3 + 2] = mandala[i3 + 2];
-                
-                // Color gradient
-                const hue = (i / actualCount) * 360;
-                const rgb = hslToRgb(hue, 100, 60);
-                colors[i3] = rgb[0];
-                colors[i3 + 1] = rgb[1];
-                colors[i3 + 2] = rgb[2];
-                
-                sizes[i] = 0.04 + Math.random() * 0.04;
-                phases[i] = Math.random() * Math.PI * 2;
-            }
-            
-            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            geometry.setAttribute('mandala', new THREE.BufferAttribute(mandala, 3));
-            geometry.setAttribute('helix', new THREE.BufferAttribute(helix, 3));
-            geometry.setAttribute('galaxy', new THREE.BufferAttribute(galaxy, 3));
-            geometry.setAttribute('cube', new THREE.BufferAttribute(cube, 3));
-            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-            geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-            geometry.setAttribute('phase', new THREE.BufferAttribute(phases, 1));
-            
-            const vertexShader = `
-                uniform float time;
-                uniform float morphProgress;
-                uniform float explodeProgress;
-                uniform float audioLow;
-                uniform float audioMid;
-                uniform int shapeMode; // 0=mandala, 1=helix, 2=galaxy, 3=cube
-                
-                attribute vec3 mandala;
-                attribute vec3 helix;
-                attribute vec3 galaxy;
-                attribute vec3 cube;
-                attribute vec3 color;
-                attribute float size;
-                attribute float phase;
-                
-                varying vec3 vColor;
-                varying float vBrightness;
-                
-                vec3 getCurrentShape() {
-                    if (shapeMode == 0) return mandala;
-                    else if (shapeMode == 1) return helix;
-                    else if (shapeMode == 2) return galaxy;
-                    else return cube;
-                }
-                
-                vec3 getTargetShape() {
-                    return getCurrentShape();
-                }
-                
-                void main() {
-                    vec3 targetPos = getTargetShape();
-                    vec3 pos = mix(position, targetPos, morphProgress);
-                    
-                    // Audio reactive breathing
-                    float breathe = sin(time * 0.5 + phase) * 0.15;
-                    pos += normalize(pos) * breathe * audioLow;
-                    
-                    // Rotation
-                    float angle = time * 0.2;
-                    float cosA = cos(angle);
-                    float sinA = sin(angle);
-                    
-                    float xNew = pos.x * cosA - pos.z * sinA;
-                    float zNew = pos.x * sinA + pos.z * cosA;
-                    pos.x = xNew;
-                    pos.z = zNew;
-                    
-                    // Explode effect
-                    vec3 explodeDir = normalize(pos);
-                    pos += explodeDir * explodeProgress * 10.0;
-                    
-                    // Audio wave effect
-                    float wave = sin(length(pos) * 2.0 - time * 2.0) * audioMid * 0.5;
-                    pos += normalize(pos) * wave;
-                    
-                    vBrightness = 1.0 + audioMid * 2.0 + abs(wave) * 2.0;
-                    vColor = color;
-                    
-                    vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-                    gl_Position = projectionMatrix * mvPosition;
-                    
-                    float finalSize = size * 120.0 * (1.0 + audioMid * 0.5);
-                    gl_PointSize = finalSize * (300.0 / -mvPosition.z);
-                }
-            `;
-            
-            const fragmentShader = `
-                uniform float time;
-                varying vec3 vColor;
-                varying float vBrightness;
-                
-                void main() {
-                    vec2 center = gl_PointCoord - vec2(0.5);
-                    float dist = length(center);
-                    
-                    float alpha = smoothstep(0.5, 0.1, dist);
-                    float glow = smoothstep(0.5, 0.0, dist) * 0.4;
-                    alpha = clamp(alpha + glow, 0.15, 1.0);
-                    
-                    vec3 finalColor = vColor * clamp(vBrightness, 0.5, 3.0);
-                    
-                    gl_FragColor = vec4(finalColor, alpha * 0.9);
-                }
-            `;
-            
-            const material = new THREE.ShaderMaterial({
-                uniforms: {
-                    time: { value: 0 },
-                    morphProgress: { value: 1.0 },
-                    explodeProgress: { value: 0 },
-                    audioLow: { value: 0 },
-                    audioMid: { value: 0 },
-                    shapeMode: { value: 0 }
+            this.camera = new Camera(videoElement, {
+                onFrame: async () => {
+                    await this.hands.send({image: videoElement});
                 },
-                vertexShader,
-                fragmentShader,
-                blending: THREE.AdditiveBlending,
-                transparent: true,
-                depthWrite: false
+                width: 320,
+                height: 240
             });
-            
-            particleSystem = new THREE.Points(geometry, material);
-            scene.add(particleSystem);
+
+            this.camera.start()
+                .then(() => {
+                    document.getElementById('vision-status').textContent = "ONLINE";
+                    document.getElementById('vision-status').style.color = "#0f0";
+                })
+                .catch(e => {
+                    console.error("Camera failed", e);
+                    document.getElementById('vision-status').textContent = "ERROR";
+                    document.getElementById('vision-status').style.color = "#f00";
+                });
         }
 
-        // ============================================
-        // TEXT TO PARTICLES
-        // ============================================
-        
-        function createTextParticles(text) {
-            // Clear existing text particles
-            textParticles.forEach(tp => scene.remove(tp));
-            textParticles = [];
+        detectGesture(landmarks) {
+            // Simple geometry-based gesture recognition
             
-            if (!text) return;
+            // Tips of fingers
+            const thumbTip = landmarks[4];
+            const indexTip = landmarks[8];
+            const middleTip = landmarks[12];
+            const ringTip = landmarks[16];
+            const pinkyTip = landmarks[20];
             
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = 1024;
-            canvas.height = 256;
-            
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#0ff';
-            ctx.font = 'bold 80px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(text.toUpperCase(), canvas.width / 2, canvas.height / 2);
-            
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const particles = [];
-            
-            for (let y = 0; y < canvas.height; y += 4) {
-                for (let x = 0; x < canvas.width; x += 4) {
-                    const i = (y * canvas.width + x) * 4;
-                    if (imageData.data[i] > 128) {
-                        const px = (x / canvas.width - 0.5) * 20;
-                        const py = -(y / canvas.height - 0.5) * 5;
-                        particles.push(px, py, 0);
-                    }
+            // Bases (MCP)
+            const indexBase = landmarks[5];
+            const pinkyBase = landmarks[17];
+            const wrist = landmarks[0];
+
+            // 1. Check for Fist (All fingers curled down)
+            const isFist = indexTip.y > indexBase.y && 
+                           middleTip.y > landmarks[9].y &&
+                           ringTip.y > landmarks[13].y &&
+                           pinkyTip.y > pinkyBase.y;
+
+            if (isFist) return 'FIST';
+
+            // 2. Check for Pinch (Thumb and Index close)
+            const pinchDist = Math.hypot(thumbTip.x - indexTip.x, thumbTip.y - indexTip.y);
+            if (pinchDist < 0.05) return 'PINCH';
+
+            // 3. Default Open Palm
+            return 'PALM';
+        }
+
+        onResults(results) {
+            if (this.cooldown > 0) {
+                this.cooldown--;
+                return;
+            }
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                const gesture = this.detectGesture(landmarks);
+                
+                if (gesture !== this.lastGesture) {
+                    this.lastGesture = gesture;
+                    this.onGesture(gesture);
+                    this.cooldown = 10; // Debounce frames
                 }
             }
+        }
+    }
+
+    class HologramApp {
+        constructor() {
+            this.container = document.getElementById('canvas-container');
+            this.scene = new THREE.Scene();
+            // Cinematic fog
+            this.scene.fog = new THREE.FogExp2(0x000000, 0.02);
             
-            if (particles.length === 0) return;
+            this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            this.camera.position.z = 18;
+            this.camera.position.y = 2;
+
+            this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Cap pixel ratio for mobile
+            this.container.appendChild(this.renderer.domElement);
+
+            this.clock = new THREE.Clock();
             
+            // State
+            this.state = {
+                explodeLevel: 0,    // 0 to 1
+                targetExplode: 0,
+                scanRadius: 0,
+                isScanning: false
+            };
+
+            this.initParticles();
+            this.setupEvents();
+        }
+
+        initParticles() {
+            // Count considerations: 
+            // Desktop: 50k+ is fine. 
+            // Mobile: 15k is safe.
+            const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+            const particleCount = isMobile ? 15000 : 40000;
+
             const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(particles), 3));
-            
-            const material = new THREE.PointsMaterial({
-                color: 0x00ffff,
-                size: CONFIG.textParticleSize,
+            const positions = new Float32Array(particleCount * 3);
+            const basePositions = new Float32Array(particleCount * 3);
+            const randoms = new Float32Array(particleCount);
+
+            const radius = 6;
+
+            for (let i = 0; i < particleCount; i++) {
+                // Sphere distribution
+                const u = Math.random();
+                const v = Math.random();
+                const theta = 2 * Math.PI * u;
+                const phi = Math.acos(2 * v - 1);
+
+                const x = radius * Math.sin(phi) * Math.cos(theta);
+                const y = radius * Math.sin(phi) * Math.sin(theta);
+                const z = radius * Math.cos(phi);
+
+                positions[i * 3] = x;
+                positions[i * 3 + 1] = y;
+                positions[i * 3 + 2] = z;
+
+                basePositions[i * 3] = x;
+                basePositions[i * 3 + 1] = y;
+                basePositions[i * 3 + 2] = z;
+
+                randoms[i] = Math.random();
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('basePosition', new THREE.BufferAttribute(basePositions, 3));
+            geometry.setAttribute('aRandom', new THREE.BufferAttribute(randoms, 1));
+
+            this.material = new THREE.ShaderMaterial({
+                uniforms: {
+                    uTime: { value: 0 },
+                    uExplode: { value: 0 },
+                    uAudioLow: { value: 0 },
+                    uAudioMid: { value: 0 },
+                    uScanRadius: { value: 0 },
+                    uScanActive: { value: 0 }
+                },
+                vertexShader: vertexShader,
+                fragmentShader: fragmentShader,
                 transparent: true,
-                opacity: 0.9,
+                depthWrite: false,
                 blending: THREE.AdditiveBlending
             });
-            
-            const textMesh = new THREE.Points(geometry, material);
-            textMesh.position.z = -5;
-            scene.add(textMesh);
-            textParticles.push(textMesh);
-            
-            // Fade out after 5 seconds
-            setTimeout(() => {
-                scene.remove(textMesh);
-                textParticles = textParticles.filter(tp => tp !== textMesh);
-            }, 5000);
+
+            this.particleSystem = new THREE.Points(geometry, this.material);
+            this.scene.add(this.particleSystem);
         }
 
-        // ============================================
-        // AUDIO SYSTEM
-        // ============================================
-        
-        async function initAudio() {
-            try {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                analyser = audioContext.createAnalyser();
-                analyser.fftSize = 512;
-                
-                const bufferLength = analyser.frequencyBinCount;
-                dataArray = new Uint8Array(bufferLength);
-                
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                microphone = audioContext.createMediaStreamSource(stream);
-                microphone.connect(analyser);
-                
-                STATE.audioEnabled = true;
-                updateStatus('Audio: ENABLED');
-            } catch (err) {
-                console.warn('Audio error:', err);
-                updateStatus('Audio: DISABLED');
+        handleGesture(gesture) {
+            const statusEl = document.getElementById('sys-status');
+            
+            switch(gesture) {
+                case 'FIST':
+                    this.state.targetExplode = 1.0;
+                    statusEl.textContent = "CORE UNSTABLE";
+                    statusEl.style.color = "#ffaa00";
+                    break;
+                case 'PALM':
+                    this.state.targetExplode = 0.0;
+                    statusEl.textContent = "CORE STABLE";
+                    statusEl.style.color = "#0ff";
+                    break;
+                case 'PINCH':
+                    this.triggerScan();
+                    statusEl.textContent = "SCANNING...";
+                    statusEl.style.color = "#fff";
+                    break;
             }
         }
 
-        function getAudioData() {
-            if (!STATE.audioEnabled || !analyser) return { low: 0, mid: 0 };
-            
-            analyser.getByteFrequencyData(dataArray);
-            
-            const low = dataArray.slice(0, 16).reduce((a, b) => a + b) / 16 / 255;
-            const mid = dataArray.slice(16, 64).reduce((a, b) => a + b) / 48 / 255;
-            
-            return {
-                low: low * CONFIG.audioReactivity,
-                mid: mid * CONFIG.audioReactivity
-            };
+        triggerScan() {
+            if (this.state.isScanning) return;
+            this.state.isScanning = true;
+            this.state.scanRadius = 0;
+            this.material.uniforms.uScanActive.value = 1.0;
         }
 
-        function toggleAudio() {
-            STATE.audioEnabled = !STATE.audioEnabled;
-          
+        update() {
+            const dt = this.clock.getDelta();
+            const elapsed = this.clock.getElapsedTime();
+
+            // 1. Update Uniforms
+            this.material.uniforms.uTime.value = elapsed;
+
+            // 2. Smooth Explode Transition
+            this.state.explodeLevel += (this.state.targetExplode - this.state.explodeLevel) * 2.0 * dt;
+            this.material.uniforms.uExplode.value = this.state.explodeLevel;
+
+            // 3. Scan Wave Logic
+            if (this.state.isScanning) {
+                this.state.scanRadius += 15.0 * dt; // Speed of scan
+                this.material.uniforms.uScanRadius.value = this.state.scanRadius;
+                
+                if (this.state.scanRadius > 30.0) {
+                    this.state.isScanning = false;
+                    this.material.uniforms.uScanActive.value = 0.0;
+                    document.getElementById('sys-status').textContent = "STANDBY";
+                    document.getElementById('sys-status').style.color = "#0ff";
+                }
+            }
+
+            // 4. Subtle rotation
+            this.particleSystem.rotation.y += 0.05 * dt;
+            
+            // 5. Audio Binding
+            if (audioManager && audioManager.active) {
+                audioManager.update();
+                // Smooth filtering for audio values to prevent flicker
+                this.material.uniforms.uAudioLow.value = THREE.MathUtils.lerp(
+                    this.material.uniforms.uAudioLow.value, 
+                    audioManager.lows, 
+                    0.1
+                );
+                this.material.uniforms.uAudioMid.value = THREE.MathUtils.lerp(
+                    this.material.uniforms.uAudioMid.value, 
+                    audioManager.mids, 
+                    0.1
+                );
+            }
+        }
+
+        render() {
+            this.renderer.render(this.scene, this.camera);
+        }
+
+        setupEvents() {
+            window.addEventListener('resize', () => {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+    }
+
+    // --- MAIN EXECUTION ---
+    
+    let app, audioManager, visionManager;
+
+    document.getElementById('start-btn').addEventListener('click', async (e) => {
+        // Hide button
+        e.target.style.display = 'none';
+        
+        // Init Systems
+        app = new HologramApp();
+        audioManager = new AudioManager();
+        
+        visionManager = new VisionManager((gesture) => {
+            app.handleGesture(gesture);
+        });
+
+        // Async inits
+        await audioManager.init();
+        visionManager.init();
+
+        // Start Loop
+        animate();
+    });
+
+    function animate() {
+        requestAnimationFrame(animate);
+        if (app) {
+            app.update();
+            app.render();
+        }
+    }
+
+    </script>
+</body>
+</html>
