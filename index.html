@@ -3,106 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Jarvis Holographic Core | Biometric Interface</title>
+    <title>Jarvis Mandala Core | Advanced Geometry</title>
     <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background-color: #000;
-            font-family: 'Courier New', Courier, monospace;
-            color: #0ff;
-        }
-
-        #canvas-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-        }
-
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', monospace; }
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        
         /* UI Overlay */
         #ui-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 10;
-            pointer-events: none;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 20px;
-            box-sizing: border-box;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 10; pointer-events: none;
+            display: flex; flex-direction: column; justify-content: space-between; padding: 20px;
         }
-
-        #status-panel {
-            text-shadow: 0 0 10px #0ff;
-            background: rgba(0, 20, 40, 0.5);
-            padding: 15px;
-            border-left: 2px solid #0ff;
-            max-width: 300px;
-            backdrop-filter: blur(4px);
-        }
-
-        .hud-text {
-            font-size: 12px;
-            line-height: 1.5;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin: 0;
-        }
-
-        .hud-value {
-            font-weight: bold;
-            color: #fff;
-        }
-
+        .hud-text { color: #0ff; font-size: 12px; letter-spacing: 1px; text-shadow: 0 0 5px rgba(0,255,255,0.5); margin: 5px 0; }
+        .hud-value { font-weight: bold; color: #fff; }
+        
         #start-btn {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: transparent;
-            border: 1px solid #0ff;
-            color: #0ff;
-            padding: 15px 40px;
-            font-size: 16px;
-            font-family: inherit;
-            cursor: pointer;
-            pointer-events: all;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
-            transition: all 0.3s ease;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0, 10, 20, 0.8); border: 1px solid #0ff; color: #0ff;
+            padding: 15px 40px; font-size: 14px; letter-spacing: 3px; cursor: pointer;
+            pointer-events: all; transition: 0.3s;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
         }
+        #start-btn:hover { background: rgba(0, 255, 255, 0.2); box-shadow: 0 0 30px rgba(0, 255, 255, 0.6); }
 
-        #start-btn:hover {
-            background: rgba(0, 255, 255, 0.1);
-            box-shadow: 0 0 40px rgba(0, 255, 255, 0.6);
-        }
-
-        /* Video feed for debug (hidden by default, can toggle if needed) */
         #video-feed {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            width: 160px;
-            height: 120px;
-            opacity: 0.3;
-            transform: scaleX(-1); /* Mirror */
-            border: 1px solid #0ff;
-            display: none; /* Hidden for cinematic feel */
+            position: absolute; bottom: 20px; right: 20px; width: 100px; height: 75px;
+            opacity: 0.2; transform: scaleX(-1); border: 1px solid #0ff; display: none;
         }
     </style>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 </head>
 <body>
 
@@ -110,48 +41,37 @@
     
     <div id="ui-layer">
         <div id="status-panel">
-            <p class="hud-text">SYS.STATUS: <span id="sys-status" class="hud-value">STANDBY</span></p>
-            <p class="hud-text">AUDIO.IN: <span id="audio-status" class="hud-value">INACTIVE</span></p>
-            <p class="hud-text">VISUAL.IN: <span id="vision-status" class="hud-value">SEARCHING</span></p>
-            <p class="hud-text" style="margin-top:10px; opacity:0.7;">GESTURES: PALM (Heal) | FIST (Break) | PINCH (Scan)</p>
+            <p class="hud-text">GEOMETRY: <span class="hud-value">TORUS_KNOT_4.2</span></p>
+            <p class="hud-text">STATUS: <span id="sys-status" class="hud-value">STANDBY</span></p>
+            <p class="hud-text">AUDIO: <span id="audio-status" class="hud-value">OFFLINE</span></p>
+            <p class="hud-text">VISUAL: <span id="vision-status" class="hud-value">SEARCHING</span></p>
         </div>
-        <button id="start-btn">Initialize System</button>
+        <button id="start-btn">INITIALIZE PROTOCOL</button>
     </div>
-
     <video id="video-feed" playsinline></video>
 
     <script>
-    /**
-     * SENIOR ENGINEER IMPLEMENTATION NOTE:
-     * * Architecture:
-     * 1. App: Main controller, handles Three.js scene, loop, and uniforms.
-     * 2. AudioManager: Handles Web Audio API, FFT analysis.
-     * 3. VisionManager: Handles MediaPipe Hands, state detection.
-     * * Shaders are written in raw GLSL within the JS for single-file portability.
-     */
-
-    // --- GLSL SHADERS ---
+    // --- SHADERS: CLEAN, SHARP, HIGH-TECH ---
 
     const vertexShader = `
         uniform float uTime;
-        uniform float uExplode;      // 0.0 = Organized, 1.0 = Exploded
-        uniform float uAudioLow;     // Bass for scaling
-        uniform float uScanRadius;   // Current radius of the scan wave
-        uniform float uScanActive;   // 0.0 or 1.0
+        uniform float uExplode;
+        uniform float uAudioLow;
+        uniform float uScanRadius;
+        uniform float uScanActive;
 
-        attribute vec3 basePosition; // Original resting position
-        attribute float aRandom;     // Random seed per particle
+        attribute vec3 basePosition;
+        attribute float aOffset; // Phase offset for animation
+        attribute float aLayer;  // Which mandala layer (1, 2, or 3)
 
         varying float vAlpha;
         varying vec3 vColor;
-        varying float vDist;
 
-        // Simplex Noise (Lightweight implementation for movement)
+        // Simplex Noise for organic movement
         vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
         vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
         vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
         vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
-
         float snoise(vec3 v) {
             const vec2  C = vec2(1.0/6.0, 1.0/3.0);
             const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
@@ -196,314 +116,232 @@
         }
 
         void main() {
-            // 1. Base Motion: Idle floating based on noise
-            float noiseVal = snoise(basePosition * 0.5 + uTime * 0.2);
-            vec3 noiseOffset = vec3(
-                snoise(basePosition * 1.0 + uTime * 0.1),
-                snoise(basePosition * 1.0 + uTime * 0.1 + 10.0),
-                snoise(basePosition * 1.0 + uTime * 0.1 + 20.0)
-            ) * 0.5; // Small organic float
+            vec3 pos = basePosition;
 
-            // 2. Audio Reactivity (Breathing)
-            vec3 pos = basePosition + noiseOffset;
-            float pulse = 1.0 + (uAudioLow * 0.5); // Expand on bass
-            pos *= pulse;
-
-            // 3. Explosion Logic (Radial + Chaos)
-            vec3 explodeDir = normalize(basePosition);
-            // Mix between orderly sphere and exploded chaos
-            vec3 explodedPos = pos + (explodeDir * 15.0 * (aRandom + 0.5)) + (noiseOffset * 5.0);
+            // --- 1. IDLE ANIMATION: ROTATE & BREATHE ---
+            // Rotate the entire mandala slowly
+            float angle = uTime * 0.1;
+            float s = sin(angle);
+            float c = cos(angle);
+            // Rotate around Y
+            mat3 rotY = mat3(c, 0.0, s, 0.0, 1.0, 0.0, -s, 0.0, c);
+            // Rotate around Z (tilt)
+            mat3 rotZ = mat3(cos(0.2), -sin(0.2), 0.0, sin(0.2), cos(0.2), 0.0, 0.0, 0.0, 1.0);
             
-            // Smooth interpolation
-            vec3 finalPos = mix(pos, explodedPos, uExplode);
+            pos = rotZ * rotY * pos;
 
-            // 4. Scan Wave Logic
-            float distFromCenter = length(finalPos);
-            float waveWidth = 2.0;
-            float inScan = 0.0;
+            // Audio Breathing: Expand based on bass
+            float breath = 1.0 + (uAudioLow * 0.3 * (1.0 + aLayer * 0.5));
+            pos *= breath;
+
+            // Subtle noise drift (individual particle float)
+            float noise = snoise(pos * 0.5 + uTime * 0.2);
+            pos += normalize(basePosition) * noise * 0.2;
+
+            // --- 2. EXPLODE LOGIC ---
+            // Shatter the mandala outward
+            vec3 explodeDir = normalize(pos);
+            vec3 explodedPos = pos + (explodeDir * (20.0 + noise * 10.0));
             
-            if (uScanActive > 0.5) {
-                // Calculate if particle is inside the wave band
-                float distDiff = abs(distFromCenter - uScanRadius);
-                // Smoothstep for soft wave edges
-                inScan = 1.0 - smoothstep(0.0, waveWidth, distDiff);
-                
-                // Displace particles slightly when scanned
-                finalPos += normalize(finalPos) * inScan * 0.5;
+            // Twist the particles as they explode for a vortex effect
+            if(uExplode > 0.01) {
+                float twist = uExplode * 5.0 * length(pos);
+                float ct = cos(twist);
+                float st = sin(twist);
+                mat3 rotTwist = mat3(ct, 0.0, st, 0.0, 1.0, 0.0, -st, 0.0, ct);
+                explodedPos = rotTwist * explodedPos;
             }
 
-            // 5. Output
-            vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
+            pos = mix(pos, explodedPos, uExplode);
+
+            // --- 3. SCAN WAVE LOGIC ---
+            float distFromCenter = length(pos);
+            float inScan = 0.0;
+            if (uScanActive > 0.5) {
+                float waveWidth = 3.0;
+                float distDiff = abs(distFromCenter - uScanRadius);
+                inScan = 1.0 - smoothstep(0.0, waveWidth, distDiff);
+                // Grid displacement effect on scan
+                pos += normalize(pos) * inScan * 1.5; 
+            }
+
+            // --- 4. COLOR & SIZE ---
+            vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
             gl_Position = projectionMatrix * mvPosition;
 
-            // Size calculation
-            // Base size + Audio kick + Scan boost
-            float size = (4.0 * (1.0 + uAudioLow)) + (inScan * 10.0);
+            // Sharp points, scale by audio
+            float sizeBase = (aLayer == 1.0) ? 3.0 : 2.0; // Inner layer smaller
+            float size = sizeBase * (1.0 + uAudioLow * 2.0);
+            size += inScan * 8.0; // Flash on scan
             
-            // Perspective attenuation (make distant particles smaller)
-            gl_PointSize = size * (300.0 / -mvPosition.z);
+            gl_PointSize = size * (400.0 / -mvPosition.z);
 
-            // Passing data to fragment
-            vAlpha = 0.6 + (inScan * 0.4); // Brighter if scanned
-            vDist = distFromCenter;
+            // Colors:
+            // Layer 0: Cyan (Outer Structure)
+            // Layer 1: Deep Blue (Inner Structure)
+            // Layer 2: White/Gold (Core Accents)
+            vec3 c1 = vec3(0.0, 0.9, 1.0); // Cyan
+            vec3 c2 = vec3(0.0, 0.3, 0.9); // Deep Blue
+            vec3 c3 = vec3(1.0, 0.8, 0.5); // Gold
             
-            // Color shift based on position/scan
-            vec3 baseColor = vec3(0.0, 0.8, 1.0); // Cyan
-            vec3 scanColor = vec3(1.0, 1.0, 1.0); // White hot
-            vColor = mix(baseColor, scanColor, inScan);
+            vec3 finalColor = c1;
+            if(aLayer > 0.5 && aLayer < 1.5) finalColor = c2;
+            if(aLayer > 1.5) finalColor = c3;
+
+            // Scan turns everything bright white
+            vColor = mix(finalColor, vec3(1.0), inScan);
+            
+            // Alpha falls off at edges
+            vAlpha = 0.8 + (inScan * 0.2);
         }
     `;
 
     const fragmentShader = `
-        uniform float uAudioMid;
         varying float vAlpha;
         varying vec3 vColor;
-
+        
         void main() {
-            // Circular Particle
             vec2 coord = gl_PointCoord - vec2(0.5);
             float dist = length(coord);
             
+            // Hard circle with soft glow edge (Clean UI look)
             if (dist > 0.5) discard;
-
-            // Radial Glow (Soft edge)
-            float glow = 1.0 - (dist * 2.0);
-            glow = pow(glow, 1.5); // Sharpen the falloff
-
-            // Audio Mid frequencies affect brightness
-            float brightness = 1.0 + uAudioMid * 2.0;
-
-            vec3 finalColor = vColor * brightness;
-
-            gl_FragColor = vec4(finalColor, vAlpha * glow);
+            
+            // Intense center, softer edge
+            float glow = 1.0 - smoothstep(0.1, 0.5, dist);
+            
+            gl_FragColor = vec4(vColor, vAlpha * glow);
         }
     `;
 
-    // --- SYSTEMS ---
+    // --- GEOMETRY GENERATOR: THE MANDALA ---
+    
+    function generateMandalaGeometry(count) {
+        const positions = new Float32Array(count * 3);
+        const basePositions = new Float32Array(count * 3);
+        const offsets = new Float32Array(count);
+        const layers = new Float32Array(count);
 
-    class AudioManager {
-        constructor() {
-            this.context = null;
-            this.analyser = null;
-            this.dataArray = null;
-            this.active = false;
-            this.lows = 0;
-            this.mids = 0;
-        }
+        let idx = 0;
 
-        async init() {
-            try {
-                this.context = new (window.AudioContext || window.webkitAudioContext)();
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                const source = this.context.createMediaStreamSource(stream);
-                
-                this.analyser = this.context.createAnalyser();
-                this.analyser.fftSize = 512;
-                source.connect(this.analyser);
-                
-                this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-                this.active = true;
-                
-                document.getElementById('audio-status').textContent = "ACTIVE";
-                document.getElementById('audio-status').style.color = "#0f0";
-            } catch (e) {
-                console.warn("Audio init failed:", e);
-                document.getElementById('audio-status').textContent = "DENIED";
-                document.getElementById('audio-status').style.color = "#f00";
-            }
-        }
-
-        update() {
-            if (!this.active) return;
+        // We will create 3 layers of geometry
+        
+        // LAYER 1: The Torus Knot (Intricate Weave)
+        // P=3, Q=7 creates a beautiful Celtic knot style structure
+        const countL1 = Math.floor(count * 0.6);
+        for (let i = 0; i < countL1; i++) {
+            const t = (i / countL1) * Math.PI * 2 * 7; // Wrap multiple times
             
-            this.analyser.getByteFrequencyData(this.dataArray);
+            // Torus Knot Formula
+            // p=3, q=7
+            const p = 3; 
+            const q = 7;
+            const tubeRadius = 1.5;
+            const mainRadius = 5.0;
             
-            // Calculate Bass (Lows) - approx first 10% of bins
-            let lowSum = 0;
-            const lowBins = Math.floor(this.dataArray.length * 0.1);
-            for(let i=0; i<lowBins; i++) lowSum += this.dataArray[i];
-            this.lows = (lowSum / lowBins) / 255; // Normalize 0-1
+            const r = mainRadius + tubeRadius * Math.cos(q * t / p);
+            let x = r * Math.cos(t);
+            let y = r * Math.sin(t);
+            let z = tubeRadius * Math.sin(q * t / p);
 
-            // Calculate Mids - approx middle 20%
-            let midSum = 0;
-            const midStart = Math.floor(this.dataArray.length * 0.2);
-            const midEnd = Math.floor(this.dataArray.length * 0.4);
-            for(let i=midStart; i<midEnd; i++) midSum += this.dataArray[i];
-            this.mids = (midSum / (midEnd - midStart)) / 255;
+            // Add thickness/volume to the line so it's not just a single pixel string
+            // We spiral around the mathematical line
+            const spread = 0.4;
+            x += (Math.random() - 0.5) * spread;
+            y += (Math.random() - 0.5) * spread;
+            z += (Math.random() - 0.5) * spread;
+
+            positions[idx*3] = x; positions[idx*3+1] = y; positions[idx*3+2] = z;
+            basePositions[idx*3] = x; basePositions[idx*3+1] = y; basePositions[idx*3+2] = z;
+            offsets[idx] = Math.random();
+            layers[idx] = 0.0; // Layer ID
+            idx++;
         }
+
+        // LAYER 2: The Outer Halo (Particles orbiting smoothly)
+        const countL2 = Math.floor(count * 0.25);
+        for (let i = 0; i < countL2; i++) {
+            const angle = (i / countL2) * Math.PI * 2;
+            const r = 8.0 + (Math.random() * 0.5); // Fixed ring radius
+            
+            // Flattened ring (Saturn-like)
+            let x = r * Math.cos(angle);
+            let z = r * Math.sin(angle);
+            let y = (Math.random() - 0.5) * 0.5; // Very flat in Y
+
+            positions[idx*3] = x; positions[idx*3+1] = y; positions[idx*3+2] = z;
+            basePositions[idx*3] = x; basePositions[idx*3+1] = y; basePositions[idx*3+2] = z;
+            offsets[idx] = Math.random();
+            layers[idx] = 1.0; 
+            idx++;
+        }
+
+        // LAYER 3: The Inner Core (Dense sphere of data)
+        const countL3 = count - countL1 - countL2;
+        for (let i = 0; i < countL3; i++) {
+            // Fibonacci Sphere for perfect distribution
+            const goldenRatio = (1 + Math.sqrt(5)) / 2;
+            const angle = 2 * Math.PI * i / goldenRatio;
+            const zLat = 1 - (2 * i / countL3);
+            const radius = Math.sqrt(1 - zLat * zLat);
+            
+            const rScale = 2.5; // Small core
+            let x = rScale * radius * Math.cos(angle);
+            let y = rScale * radius * Math.sin(angle);
+            let z = rScale * zLat;
+
+            positions[idx*3] = x; positions[idx*3+1] = y; positions[idx*3+2] = z;
+            basePositions[idx*3] = x; basePositions[idx*3+1] = y; basePositions[idx*3+2] = z;
+            offsets[idx] = Math.random();
+            layers[idx] = 2.0; 
+            idx++;
+        }
+
+        return { positions, basePositions, offsets, layers };
     }
 
-    class VisionManager {
-        constructor(onGesture) {
-            this.hands = null;
-            this.camera = null;
-            this.onGesture = onGesture;
-            this.lastGesture = 'IDLE';
-            this.cooldown = 0;
-        }
+    // --- MAIN APP ---
 
-        init() {
-            const videoElement = document.getElementById('video-feed');
-            
-            this.hands = new Hands({locateFile: (file) => {
-                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-            }});
-
-            this.hands.setOptions({
-                maxNumHands: 1,
-                modelComplexity: 0, // Lite model for performance
-                minDetectionConfidence: 0.5,
-                minTrackingConfidence: 0.5
-            });
-
-            this.hands.onResults(this.onResults.bind(this));
-
-            this.camera = new Camera(videoElement, {
-                onFrame: async () => {
-                    await this.hands.send({image: videoElement});
-                },
-                width: 320,
-                height: 240
-            });
-
-            this.camera.start()
-                .then(() => {
-                    document.getElementById('vision-status').textContent = "ONLINE";
-                    document.getElementById('vision-status').style.color = "#0f0";
-                })
-                .catch(e => {
-                    console.error("Camera failed", e);
-                    document.getElementById('vision-status').textContent = "ERROR";
-                    document.getElementById('vision-status').style.color = "#f00";
-                });
-        }
-
-        detectGesture(landmarks) {
-            // Simple geometry-based gesture recognition
-            
-            // Tips of fingers
-            const thumbTip = landmarks[4];
-            const indexTip = landmarks[8];
-            const middleTip = landmarks[12];
-            const ringTip = landmarks[16];
-            const pinkyTip = landmarks[20];
-            
-            // Bases (MCP)
-            const indexBase = landmarks[5];
-            const pinkyBase = landmarks[17];
-            const wrist = landmarks[0];
-
-            // 1. Check for Fist (All fingers curled down)
-            const isFist = indexTip.y > indexBase.y && 
-                           middleTip.y > landmarks[9].y &&
-                           ringTip.y > landmarks[13].y &&
-                           pinkyTip.y > pinkyBase.y;
-
-            if (isFist) return 'FIST';
-
-            // 2. Check for Pinch (Thumb and Index close)
-            const pinchDist = Math.hypot(thumbTip.x - indexTip.x, thumbTip.y - indexTip.y);
-            if (pinchDist < 0.05) return 'PINCH';
-
-            // 3. Default Open Palm
-            return 'PALM';
-        }
-
-        onResults(results) {
-            if (this.cooldown > 0) {
-                this.cooldown--;
-                return;
-            }
-
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const landmarks = results.multiHandLandmarks[0];
-                const gesture = this.detectGesture(landmarks);
-                
-                if (gesture !== this.lastGesture) {
-                    this.lastGesture = gesture;
-                    this.onGesture(gesture);
-                    this.cooldown = 10; // Debounce frames
-                }
-            }
-        }
-    }
-
-    class HologramApp {
+    class MandalaSystem {
         constructor() {
-            this.container = document.getElementById('canvas-container');
             this.scene = new THREE.Scene();
-            // Cinematic fog
-            this.scene.fog = new THREE.FogExp2(0x000000, 0.02);
+            // Deep space fog
+            this.scene.fog = new THREE.FogExp2(0x000000, 0.015);
             
-            this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            this.camera.position.z = 18;
-            this.camera.position.y = 2;
-
+            this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            this.camera.position.set(0, 0, 18); // Pulled back to see the whole structure
+            
             this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
             this.renderer.setSize(window.innerWidth, window.innerHeight);
-            this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Cap pixel ratio for mobile
-            this.container.appendChild(this.renderer.domElement);
+            this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            document.getElementById('canvas-container').appendChild(this.renderer.domElement);
 
             this.clock = new THREE.Clock();
             
-            // State
-            this.state = {
-                explodeLevel: 0,    // 0 to 1
-                targetExplode: 0,
-                scanRadius: 0,
-                isScanning: false
-            };
+            // Interactions
+            this.state = { explode: 0, targetExplode: 0, scanRadius: 0, scanActive: false };
 
             this.initParticles();
-            this.setupEvents();
+            this.setupResize();
         }
 
         initParticles() {
-            // Count considerations: 
-            // Desktop: 50k+ is fine. 
-            // Mobile: 15k is safe.
             const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
-            const particleCount = isMobile ? 15000 : 40000;
+            const count = isMobile ? 20000 : 50000;
+            
+            const data = generateMandalaGeometry(count);
 
             const geometry = new THREE.BufferGeometry();
-            const positions = new Float32Array(particleCount * 3);
-            const basePositions = new Float32Array(particleCount * 3);
-            const randoms = new Float32Array(particleCount);
-
-            const radius = 6;
-
-            for (let i = 0; i < particleCount; i++) {
-                // Sphere distribution
-                const u = Math.random();
-                const v = Math.random();
-                const theta = 2 * Math.PI * u;
-                const phi = Math.acos(2 * v - 1);
-
-                const x = radius * Math.sin(phi) * Math.cos(theta);
-                const y = radius * Math.sin(phi) * Math.sin(theta);
-                const z = radius * Math.cos(phi);
-
-                positions[i * 3] = x;
-                positions[i * 3 + 1] = y;
-                positions[i * 3 + 2] = z;
-
-                basePositions[i * 3] = x;
-                basePositions[i * 3 + 1] = y;
-                basePositions[i * 3 + 2] = z;
-
-                randoms[i] = Math.random();
-            }
-
-            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            geometry.setAttribute('basePosition', new THREE.BufferAttribute(basePositions, 3));
-            geometry.setAttribute('aRandom', new THREE.BufferAttribute(randoms, 1));
+            geometry.setAttribute('position', new THREE.BufferAttribute(data.positions, 3));
+            geometry.setAttribute('basePosition', new THREE.BufferAttribute(data.basePositions, 3));
+            geometry.setAttribute('aOffset', new THREE.BufferAttribute(data.offsets, 1));
+            geometry.setAttribute('aLayer', new THREE.BufferAttribute(data.layers, 1));
 
             this.material = new THREE.ShaderMaterial({
                 uniforms: {
                     uTime: { value: 0 },
                     uExplode: { value: 0 },
                     uAudioLow: { value: 0 },
-                    uAudioMid: { value: 0 },
                     uScanRadius: { value: 0 },
                     uScanActive: { value: 0 }
                 },
@@ -514,80 +352,36 @@
                 blending: THREE.AdditiveBlending
             });
 
-            this.particleSystem = new THREE.Points(geometry, this.material);
-            this.scene.add(this.particleSystem);
+            this.points = new THREE.Points(geometry, this.material);
+            this.scene.add(this.points);
         }
 
-        handleGesture(gesture) {
-            const statusEl = document.getElementById('sys-status');
-            
-            switch(gesture) {
-                case 'FIST':
-                    this.state.targetExplode = 1.0;
-                    statusEl.textContent = "CORE UNSTABLE";
-                    statusEl.style.color = "#ffaa00";
-                    break;
-                case 'PALM':
-                    this.state.targetExplode = 0.0;
-                    statusEl.textContent = "CORE STABLE";
-                    statusEl.style.color = "#0ff";
-                    break;
-                case 'PINCH':
-                    this.triggerScan();
-                    statusEl.textContent = "SCANNING...";
-                    statusEl.style.color = "#fff";
-                    break;
-            }
-        }
-
-        triggerScan() {
-            if (this.state.isScanning) return;
-            this.state.isScanning = true;
-            this.state.scanRadius = 0;
-            this.material.uniforms.uScanActive.value = 1.0;
-        }
-
-        update() {
+        update(audioData) {
             const dt = this.clock.getDelta();
             const elapsed = this.clock.getElapsedTime();
 
-            // 1. Update Uniforms
             this.material.uniforms.uTime.value = elapsed;
 
-            // 2. Smooth Explode Transition
-            this.state.explodeLevel += (this.state.targetExplode - this.state.explodeLevel) * 2.0 * dt;
-            this.material.uniforms.uExplode.value = this.state.explodeLevel;
+            // Smooth Explode
+            this.state.explode += (this.state.targetExplode - this.state.explode) * 3.0 * dt;
+            this.material.uniforms.uExplode.value = this.state.explode;
 
-            // 3. Scan Wave Logic
-            if (this.state.isScanning) {
-                this.state.scanRadius += 15.0 * dt; // Speed of scan
-                this.material.uniforms.uScanRadius.value = this.state.scanRadius;
-                
-                if (this.state.scanRadius > 30.0) {
-                    this.state.isScanning = false;
-                    this.material.uniforms.uScanActive.value = 0.0;
-                    document.getElementById('sys-status').textContent = "STANDBY";
-                    document.getElementById('sys-status').style.color = "#0ff";
-                }
+            // Audio Link
+            if(audioData) {
+                // Smooth damping
+                let targetLow = audioData.lows;
+                this.material.uniforms.uAudioLow.value += (targetLow - this.material.uniforms.uAudioLow.value) * 0.1;
             }
 
-            // 4. Subtle rotation
-            this.particleSystem.rotation.y += 0.05 * dt;
-            
-            // 5. Audio Binding
-            if (audioManager && audioManager.active) {
-                audioManager.update();
-                // Smooth filtering for audio values to prevent flicker
-                this.material.uniforms.uAudioLow.value = THREE.MathUtils.lerp(
-                    this.material.uniforms.uAudioLow.value, 
-                    audioManager.lows, 
-                    0.1
-                );
-                this.material.uniforms.uAudioMid.value = THREE.MathUtils.lerp(
-                    this.material.uniforms.uAudioMid.value, 
-                    audioManager.mids, 
-                    0.1
-                );
+            // Scan Logic
+            if(this.state.scanActive) {
+                this.state.scanRadius += 20.0 * dt;
+                this.material.uniforms.uScanRadius.value = this.state.scanRadius;
+                if(this.state.scanRadius > 40.0) {
+                    this.state.scanActive = false;
+                    this.material.uniforms.uScanActive.value = 0.0;
+                    updateHUD("STATUS", "STANDBY");
+                }
             }
         }
 
@@ -595,7 +389,21 @@
             this.renderer.render(this.scene, this.camera);
         }
 
-        setupEvents() {
+        triggerScan() {
+            if(!this.state.scanActive) {
+                this.state.scanActive = true;
+                this.state.scanRadius = 0;
+                this.material.uniforms.uScanActive.value = 1.0;
+                updateHUD("STATUS", "SCANNING SECTOR");
+            }
+        }
+
+        setExplode(val) {
+            this.state.targetExplode = val;
+            updateHUD("STATUS", val > 0.5 ? "CORE UNSTABLE" : "CORE STABLE");
+        }
+
+        setupResize() {
             window.addEventListener('resize', () => {
                 this.camera.aspect = window.innerWidth / window.innerHeight;
                 this.camera.updateProjectionMatrix();
@@ -604,37 +412,103 @@
         }
     }
 
-    // --- MAIN EXECUTION ---
-    
-    let app, audioManager, visionManager;
+    // --- AUDIO & VISION (Simplified for stability) ---
 
-    document.getElementById('start-btn').addEventListener('click', async (e) => {
-        // Hide button
-        e.target.style.display = 'none';
-        
-        // Init Systems
-        app = new HologramApp();
-        audioManager = new AudioManager();
-        
-        visionManager = new VisionManager((gesture) => {
-            app.handleGesture(gesture);
-        });
+    class SystemInput {
+        constructor(sys) {
+            this.sys = sys;
+            this.audioCtx = null;
+            this.analyser = null;
+            this.dataArray = null;
+            this.hands = null;
+            this.camera = null;
+            this.lastGesture = "NONE";
+        }
 
-        // Async inits
-        await audioManager.init();
-        visionManager.init();
+        async start() {
+            // Audio
+            try {
+                this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const src = this.audioCtx.createMediaStreamSource(stream);
+                this.analyser = this.audioCtx.createAnalyser();
+                this.analyser.fftSize = 256;
+                src.connect(this.analyser);
+                this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+                updateHUD("AUDIO", "ONLINE");
+            } catch(e) { console.log("Audio Denied"); }
 
-        // Start Loop
-        animate();
+            // Video/Hands
+            try {
+                const vid = document.getElementById('video-feed');
+                this.hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+                this.hands.setOptions({maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.6});
+                this.hands.onResults(this.onHands.bind(this));
+                
+                this.camera = new Camera(vid, {
+                    onFrame: async () => { await this.hands.send({image: vid}); },
+                    width: 320, height: 240
+                });
+                await this.camera.start();
+                updateHUD("VISUAL", "ONLINE");
+            } catch(e) { console.log("Video Error"); }
+        }
+
+        getAudioData() {
+            if(!this.analyser) return null;
+            this.analyser.getByteFrequencyData(this.dataArray);
+            let sum = 0;
+            // Get Bass (first 10 bins)
+            for(let i=0; i<10; i++) sum += this.dataArray[i];
+            return { lows: (sum/10)/255 };
+        }
+
+        onHands(results) {
+            if (!results.multiHandLandmarks.length) return;
+            const lm = results.multiHandLandmarks[0];
+            
+            // 1. Fist Check (Index Tip below Index Base)
+            const isFist = lm[8].y > lm[5].y && lm[12].y > lm[9].y;
+            
+            // 2. Pinch Check (Thumb to Index)
+            const dx = lm[4].x - lm[8].x;
+            const dy = lm[4].y - lm[8].y;
+            const isPinch = Math.sqrt(dx*dx + dy*dy) < 0.05;
+
+            let currentGesture = "PALM";
+            if (isFist) currentGesture = "FIST";
+            if (isPinch) currentGesture = "PINCH";
+
+            if (currentGesture !== this.lastGesture) {
+                this.lastGesture = currentGesture;
+                if(currentGesture === "FIST") this.sys.setExplode(1.0);
+                if(currentGesture === "PALM") this.sys.setExplode(0.0);
+                if(currentGesture === "PINCH") this.sys.triggerScan();
+            }
+        }
+    }
+
+    // --- UTILS ---
+    function updateHUD(id, text) {
+        const el = document.getElementById(id === "STATUS" ? "sys-status" : (id === "AUDIO" ? "audio-status" : "vision-status"));
+        if(el) el.textContent = text;
+    }
+
+    // --- BOOT ---
+    const system = new MandalaSystem();
+    const inputs = new SystemInput(system);
+
+    document.getElementById('start-btn').addEventListener('click', (e) => {
+        e.target.style.display = "none";
+        inputs.start();
     });
 
     function animate() {
         requestAnimationFrame(animate);
-        if (app) {
-            app.update();
-            app.render();
-        }
+        system.update(inputs.getAudioData());
+        system.render();
     }
+    animate();
 
     </script>
 </body>
