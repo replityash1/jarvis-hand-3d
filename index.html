@@ -2,514 +2,200 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Jarvis Mandala Core | Advanced Geometry</title>
-    <style>
-        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', monospace; }
-        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
-        
-        /* UI Overlay */
-        #ui-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 10; pointer-events: none;
-            display: flex; flex-direction: column; justify-content: space-between; padding: 20px;
-        }
-        .hud-text { color: #0ff; font-size: 12px; letter-spacing: 1px; text-shadow: 0 0 5px rgba(0,255,255,0.5); margin: 5px 0; }
-        .hud-value { font-weight: bold; color: #fff; }
-        
-        #start-btn {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(0, 10, 20, 0.8); border: 1px solid #0ff; color: #0ff;
-            padding: 15px 40px; font-size: 14px; letter-spacing: 3px; cursor: pointer;
-            pointer-events: all; transition: 0.3s;
-            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
-        }
-        #start-btn:hover { background: rgba(0, 255, 255, 0.2); box-shadow: 0 0 30px rgba(0, 255, 255, 0.6); }
-
-        #video-feed {
-            position: absolute; bottom: 20px; right: 20px; width: 100px; height: 75px;
-            opacity: 0.2; transform: scaleX(-1); border: 1px solid #0ff; display: none;
-        }
-    </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Celestial Hand Particles</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background: #020205; font-family: 'Segoe UI', sans-serif; }
+        #ui {
+            position: absolute; top: 20px; left: 20px; color: #fff;
+            background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px);
+            padding: 20px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 8px 32px 0 rgba(0,0,0,0.8); pointer-events: none;
+        }
+        h2 { margin: 0; font-weight: 300; letter-spacing: 2px; color: #88ccff; }
+        .stat { font-family: monospace; color: #00ffcc; font-size: 1.2em; }
+        #input_video { display: none; }
+    </style>
 </head>
 <body>
-
-    <div id="canvas-container"></div>
-    
-    <div id="ui-layer">
-        <div id="status-panel">
-            <p class="hud-text">GEOMETRY: <span class="hud-value">TORUS_KNOT_4.2</span></p>
-            <p class="hud-text">STATUS: <span id="sys-status" class="hud-value">STANDBY</span></p>
-            <p class="hud-text">AUDIO: <span id="audio-status" class="hud-value">OFFLINE</span></p>
-            <p class="hud-text">VISUAL: <span id="vision-status" class="hud-value">SEARCHING</span></p>
-        </div>
-        <button id="start-btn">INITIALIZE PROTOCOL</button>
+    <video id="input_video"></video>
+    <div id="ui">
+        <h2>CELESTIAL SYSTEM</h2>
+        <div style="margin-top:10px;">Body Type: <span id="shape-name" class="stat">Nebula</span></div>
+        <div>Gravitational Pull: <span id="dist-val" class="stat">0</span></div>
     </div>
-    <video id="video-feed" playsinline></video>
 
     <script>
-    // --- SHADERS: CLEAN, SHARP, HIGH-TECH ---
+        const scene = new THREE.Scene();
+        // Add subtle background stars
+        const starGeo = new THREE.BufferGeometry();
+        const starPos = new Float32Array(3000 * 3);
+        for(let i=0; i<9000; i++) starPos[i] = (Math.random() - 0.5) * 100;
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+        const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({color: 0x444444, size: 0.1}));
+        scene.add(stars);
 
-    const vertexShader = `
-        uniform float uTime;
-        uniform float uExplode;
-        uniform float uAudioLow;
-        uniform float uScanRadius;
-        uniform float uScanActive;
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 20;
 
-        attribute vec3 basePosition;
-        attribute float aOffset; // Phase offset for animation
-        attribute float aLayer;  // Which mandala layer (1, 2, or 3)
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0x020205);
+        document.body.appendChild(renderer.domElement);
 
-        varying float vAlpha;
-        varying vec3 vColor;
+        const state = { handPos: new THREE.Vector3(), expansion: 0.1, templateIdx: 0, isFist: false, lastFistTime: 0 };
 
-        // Simplex Noise for organic movement
-        vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-        vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-        vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
-        vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
-        float snoise(vec3 v) {
-            const vec2  C = vec2(1.0/6.0, 1.0/3.0);
-            const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
-            vec3 i  = floor(v + dot(v, C.yyy) );
-            vec3 x0 = v - i + dot(i, C.xxx) ;
-            vec3 g = step(x0.yzx, x0.xyz);
-            vec3 l = 1.0 - g;
-            vec3 i1 = min( g.xyz, l.zxy );
-            vec3 i2 = max( g.xyz, l.zxy );
-            vec3 x1 = x0 - i1 + C.xxx;
-            vec3 x2 = x0 - i2 + C.yyy;
-            vec3 x3 = x0 - D.yyy;
-            i = mod289(i);
-            vec4 p = permute( permute( permute( 
-                        i.z + vec4(0.0, i1.z, i2.z, 1.0 ))
-                      + i.y + vec4(0.0, i1.y, i2.y, 1.0 )) 
-                      + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
-            float n_ = 0.142857142857;
-            vec3  ns = n_ * D.wyz - D.xzx;
-            vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
-            vec4 x_ = floor(j * ns.z);
-            vec4 y_ = floor(j - 7.0 * x_ );
-            vec4 x = x_ *ns.x + ns.yyyy;
-            vec4 y = y_ *ns.x + ns.yyyy;
-            vec4 h = 1.0 - abs(x) - abs(y);
-            vec4 b0 = vec4( x.xy, y.xy );
-            vec4 b1 = vec4( x.zw, y.zw );
-            vec4 s0 = floor(b0)*2.0 + 1.0;
-            vec4 s1 = floor(b1)*2.0 + 1.0;
-            vec4 sh = -step(h, vec4(0.0));
-            vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
-            vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
-            vec3 p0 = vec3(a0.xy,h.x);
-            vec3 p1 = vec3(a0.zw,h.y);
-            vec3 p2 = vec3(a1.xy,h.z);
-            vec3 p3 = vec3(a1.zw,h.w);
-            vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
-            p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
-            vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
-            m = m * m;
-            return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) );
+        const templates = [
+            { name: "Nebula Core", color: new THREE.Color(0xaa00ff) },
+            { name: "Solar Flare", color: new THREE.Color(0xff5500) },
+            { name: "Saturn Rings", color: new THREE.Color(0x00aaff) },
+            { name: "Supernova", color: new THREE.Color(0xffffff) }
+        ];
+
+        const count = 80000;
+        const geo = new THREE.BufferGeometry();
+        const posArray = new Float32Array(count * 3);
+        const attrArray = new Float32Array(count * 3); // size, speed, phase
+
+        for(let i=0; i<count; i++) {
+            posArray[i*3] = (Math.random() - 0.5) * 10;
+            posArray[i*3+1] = (Math.random() - 0.5) * 10;
+            posArray[i*3+2] = (Math.random() - 0.5) * 10;
+            
+            attrArray[i*3] = Math.random() * 2.0 + 0.5; // Size
+            attrArray[i*3+1] = Math.random() * 2.0;     // Speed
+            attrArray[i*3+2] = Math.random() * 6.28;    // Phase
         }
 
-        void main() {
-            vec3 pos = basePosition;
+        geo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        geo.setAttribute('a_attr', new THREE.BufferAttribute(attrArray, 3));
 
-            // --- 1. IDLE ANIMATION: ROTATE & BREATHE ---
-            // Rotate the entire mandala slowly
-            float angle = uTime * 0.1;
-            float s = sin(angle);
-            float c = cos(angle);
-            // Rotate around Y
-            mat3 rotY = mat3(c, 0.0, s, 0.0, 1.0, 0.0, -s, 0.0, c);
-            // Rotate around Z (tilt)
-            mat3 rotZ = mat3(cos(0.2), -sin(0.2), 0.0, sin(0.2), cos(0.2), 0.0, 0.0, 0.0, 1.0);
-            
-            pos = rotZ * rotY * pos;
-
-            // Audio Breathing: Expand based on bass
-            float breath = 1.0 + (uAudioLow * 0.3 * (1.0 + aLayer * 0.5));
-            pos *= breath;
-
-            // Subtle noise drift (individual particle float)
-            float noise = snoise(pos * 0.5 + uTime * 0.2);
-            pos += normalize(basePosition) * noise * 0.2;
-
-            // --- 2. EXPLODE LOGIC ---
-            // Shatter the mandala outward
-            vec3 explodeDir = normalize(pos);
-            vec3 explodedPos = pos + (explodeDir * (20.0 + noise * 10.0));
-            
-            // Twist the particles as they explode for a vortex effect
-            if(uExplode > 0.01) {
-                float twist = uExplode * 5.0 * length(pos);
-                float ct = cos(twist);
-                float st = sin(twist);
-                mat3 rotTwist = mat3(ct, 0.0, st, 0.0, 1.0, 0.0, -st, 0.0, ct);
-                explodedPos = rotTwist * explodedPos;
-            }
-
-            pos = mix(pos, explodedPos, uExplode);
-
-            // --- 3. SCAN WAVE LOGIC ---
-            float distFromCenter = length(pos);
-            float inScan = 0.0;
-            if (uScanActive > 0.5) {
-                float waveWidth = 3.0;
-                float distDiff = abs(distFromCenter - uScanRadius);
-                inScan = 1.0 - smoothstep(0.0, waveWidth, distDiff);
-                // Grid displacement effect on scan
-                pos += normalize(pos) * inScan * 1.5; 
-            }
-
-            // --- 4. COLOR & SIZE ---
-            vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-            gl_Position = projectionMatrix * mvPosition;
-
-            // Sharp points, scale by audio
-            float sizeBase = (aLayer == 1.0) ? 3.0 : 2.0; // Inner layer smaller
-            float size = sizeBase * (1.0 + uAudioLow * 2.0);
-            size += inScan * 8.0; // Flash on scan
-            
-            gl_PointSize = size * (400.0 / -mvPosition.z);
-
-            // Colors:
-            // Layer 0: Cyan (Outer Structure)
-            // Layer 1: Deep Blue (Inner Structure)
-            // Layer 2: White/Gold (Core Accents)
-            vec3 c1 = vec3(0.0, 0.9, 1.0); // Cyan
-            vec3 c2 = vec3(0.0, 0.3, 0.9); // Deep Blue
-            vec3 c3 = vec3(1.0, 0.8, 0.5); // Gold
-            
-            vec3 finalColor = c1;
-            if(aLayer > 0.5 && aLayer < 1.5) finalColor = c2;
-            if(aLayer > 1.5) finalColor = c3;
-
-            // Scan turns everything bright white
-            vColor = mix(finalColor, vec3(1.0), inScan);
-            
-            // Alpha falls off at edges
-            vAlpha = 0.8 + (inScan * 0.2);
-        }
-    `;
-
-    const fragmentShader = `
-        varying float vAlpha;
-        varying vec3 vColor;
-        
-        void main() {
-            vec2 coord = gl_PointCoord - vec2(0.5);
-            float dist = length(coord);
-            
-            // Hard circle with soft glow edge (Clean UI look)
-            if (dist > 0.5) discard;
-            
-            // Intense center, softer edge
-            float glow = 1.0 - smoothstep(0.1, 0.5, dist);
-            
-            gl_FragColor = vec4(vColor, vAlpha * glow);
-        }
-    `;
-
-    // --- GEOMETRY GENERATOR: THE MANDALA ---
-    
-    function generateMandalaGeometry(count) {
-        const positions = new Float32Array(count * 3);
-        const basePositions = new Float32Array(count * 3);
-        const offsets = new Float32Array(count);
-        const layers = new Float32Array(count);
-
-        let idx = 0;
-
-        // We will create 3 layers of geometry
-        
-        // LAYER 1: The Torus Knot (Intricate Weave)
-        // P=3, Q=7 creates a beautiful Celtic knot style structure
-        const countL1 = Math.floor(count * 0.6);
-        for (let i = 0; i < countL1; i++) {
-            const t = (i / countL1) * Math.PI * 2 * 7; // Wrap multiple times
-            
-            // Torus Knot Formula
-            // p=3, q=7
-            const p = 3; 
-            const q = 7;
-            const tubeRadius = 1.5;
-            const mainRadius = 5.0;
-            
-            const r = mainRadius + tubeRadius * Math.cos(q * t / p);
-            let x = r * Math.cos(t);
-            let y = r * Math.sin(t);
-            let z = tubeRadius * Math.sin(q * t / p);
-
-            // Add thickness/volume to the line so it's not just a single pixel string
-            // We spiral around the mathematical line
-            const spread = 0.4;
-            x += (Math.random() - 0.5) * spread;
-            y += (Math.random() - 0.5) * spread;
-            z += (Math.random() - 0.5) * spread;
-
-            positions[idx*3] = x; positions[idx*3+1] = y; positions[idx*3+2] = z;
-            basePositions[idx*3] = x; basePositions[idx*3+1] = y; basePositions[idx*3+2] = z;
-            offsets[idx] = Math.random();
-            layers[idx] = 0.0; // Layer ID
-            idx++;
-        }
-
-        // LAYER 2: The Outer Halo (Particles orbiting smoothly)
-        const countL2 = Math.floor(count * 0.25);
-        for (let i = 0; i < countL2; i++) {
-            const angle = (i / countL2) * Math.PI * 2;
-            const r = 8.0 + (Math.random() * 0.5); // Fixed ring radius
-            
-            // Flattened ring (Saturn-like)
-            let x = r * Math.cos(angle);
-            let z = r * Math.sin(angle);
-            let y = (Math.random() - 0.5) * 0.5; // Very flat in Y
-
-            positions[idx*3] = x; positions[idx*3+1] = y; positions[idx*3+2] = z;
-            basePositions[idx*3] = x; basePositions[idx*3+1] = y; basePositions[idx*3+2] = z;
-            offsets[idx] = Math.random();
-            layers[idx] = 1.0; 
-            idx++;
-        }
-
-        // LAYER 3: The Inner Core (Dense sphere of data)
-        const countL3 = count - countL1 - countL2;
-        for (let i = 0; i < countL3; i++) {
-            // Fibonacci Sphere for perfect distribution
-            const goldenRatio = (1 + Math.sqrt(5)) / 2;
-            const angle = 2 * Math.PI * i / goldenRatio;
-            const zLat = 1 - (2 * i / countL3);
-            const radius = Math.sqrt(1 - zLat * zLat);
-            
-            const rScale = 2.5; // Small core
-            let x = rScale * radius * Math.cos(angle);
-            let y = rScale * radius * Math.sin(angle);
-            let z = rScale * zLat;
-
-            positions[idx*3] = x; positions[idx*3+1] = y; positions[idx*3+2] = z;
-            basePositions[idx*3] = x; basePositions[idx*3+1] = y; basePositions[idx*3+2] = z;
-            offsets[idx] = Math.random();
-            layers[idx] = 2.0; 
-            idx++;
-        }
-
-        return { positions, basePositions, offsets, layers };
-    }
-
-    // --- MAIN APP ---
-
-    class MandalaSystem {
-        constructor() {
-            this.scene = new THREE.Scene();
-            // Deep space fog
-            this.scene.fog = new THREE.FogExp2(0x000000, 0.015);
-            
-            this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-            this.camera.position.set(0, 0, 18); // Pulled back to see the whole structure
-            
-            this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-            this.renderer.setSize(window.innerWidth, window.innerHeight);
-            this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            document.getElementById('canvas-container').appendChild(this.renderer.domElement);
-
-            this.clock = new THREE.Clock();
-            
-            // Interactions
-            this.state = { explode: 0, targetExplode: 0, scanRadius: 0, scanActive: false };
-
-            this.initParticles();
-            this.setupResize();
-        }
-
-        initParticles() {
-            const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
-            const count = isMobile ? 20000 : 50000;
-            
-            const data = generateMandalaGeometry(count);
-
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.BufferAttribute(data.positions, 3));
-            geometry.setAttribute('basePosition', new THREE.BufferAttribute(data.basePositions, 3));
-            geometry.setAttribute('aOffset', new THREE.BufferAttribute(data.offsets, 1));
-            geometry.setAttribute('aLayer', new THREE.BufferAttribute(data.layers, 1));
-
-            this.material = new THREE.ShaderMaterial({
-                uniforms: {
-                    uTime: { value: 0 },
-                    uExplode: { value: 0 },
-                    uAudioLow: { value: 0 },
-                    uScanRadius: { value: 0 },
-                    uScanActive: { value: 0 }
-                },
-                vertexShader: vertexShader,
-                fragmentShader: fragmentShader,
-                transparent: true,
-                depthWrite: false,
-                blending: THREE.AdditiveBlending
-            });
-
-            this.points = new THREE.Points(geometry, this.material);
-            this.scene.add(this.points);
-        }
-
-        update(audioData) {
-            const dt = this.clock.getDelta();
-            const elapsed = this.clock.getElapsedTime();
-
-            this.material.uniforms.uTime.value = elapsed;
-
-            // Smooth Explode
-            this.state.explode += (this.state.targetExplode - this.state.explode) * 3.0 * dt;
-            this.material.uniforms.uExplode.value = this.state.explode;
-
-            // Audio Link
-            if(audioData) {
-                // Smooth damping
-                let targetLow = audioData.lows;
-                this.material.uniforms.uAudioLow.value += (targetLow - this.material.uniforms.uAudioLow.value) * 0.1;
-            }
-
-            // Scan Logic
-            if(this.state.scanActive) {
-                this.state.scanRadius += 20.0 * dt;
-                this.material.uniforms.uScanRadius.value = this.state.scanRadius;
-                if(this.state.scanRadius > 40.0) {
-                    this.state.scanActive = false;
-                    this.material.uniforms.uScanActive.value = 0.0;
-                    updateHUD("STATUS", "STANDBY");
-                }
-            }
-        }
-
-        render() {
-            this.renderer.render(this.scene, this.camera);
-        }
-
-        triggerScan() {
-            if(!this.state.scanActive) {
-                this.state.scanActive = true;
-                this.state.scanRadius = 0;
-                this.material.uniforms.uScanActive.value = 1.0;
-                updateHUD("STATUS", "SCANNING SECTOR");
-            }
-        }
-
-        setExplode(val) {
-            this.state.targetExplode = val;
-            updateHUD("STATUS", val > 0.5 ? "CORE UNSTABLE" : "CORE STABLE");
-        }
-
-        setupResize() {
-            window.addEventListener('resize', () => {
-                this.camera.aspect = window.innerWidth / window.innerHeight;
-                this.camera.updateProjectionMatrix();
-                this.renderer.setSize(window.innerWidth, window.innerHeight);
-            });
-        }
-    }
-
-    // --- AUDIO & VISION (Simplified for stability) ---
-
-    class SystemInput {
-        constructor(sys) {
-            this.sys = sys;
-            this.audioCtx = null;
-            this.analyser = null;
-            this.dataArray = null;
-            this.hands = null;
-            this.camera = null;
-            this.lastGesture = "NONE";
-        }
-
-        async start() {
-            // Audio
-            try {
-                this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                const src = this.audioCtx.createMediaStreamSource(stream);
-                this.analyser = this.audioCtx.createAnalyser();
-                this.analyser.fftSize = 256;
-                src.connect(this.analyser);
-                this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-                updateHUD("AUDIO", "ONLINE");
-            } catch(e) { console.log("Audio Denied"); }
-
-            // Video/Hands
-            try {
-                const vid = document.getElementById('video-feed');
-                this.hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-                this.hands.setOptions({maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.6});
-                this.hands.onResults(this.onHands.bind(this));
+        const material = new THREE.ShaderMaterial({
+            uniforms: {
+                u_time: { value: 0 },
+                u_expand: { value: 0 },
+                u_type: { value: 0 },
+                u_center: { value: new THREE.Vector3() },
+                u_color: { value: templates[0].color }
+            },
+            vertexShader: `
+                uniform float u_time;
+                uniform float u_expand;
+                uniform int u_type;
+                uniform vec3 u_center;
+                attribute vec3 a_attr;
+                varying float vAlpha;
                 
-                this.camera = new Camera(vid, {
-                    onFrame: async () => { await this.hands.send({image: vid}); },
-                    width: 320, height: 240
-                });
-                await this.camera.start();
-                updateHUD("VISUAL", "ONLINE");
-            } catch(e) { console.log("Video Error"); }
-        }
+                void main() {
+                    float size = a_attr.x;
+                    float speed = a_attr.y;
+                    float phase = a_attr.z;
+                    float t = u_time * (0.5 + speed * 0.5) + phase;
+                    
+                    vec3 p = position;
+                    vec3 finalPos;
 
-        getAudioData() {
-            if(!this.analyser) return null;
-            this.analyser.getByteFrequencyData(this.dataArray);
-            let sum = 0;
-            // Get Bass (first 10 bins)
-            for(let i=0; i<10; i++) sum += this.dataArray[i];
-            return { lows: (sum/10)/255 };
-        }
+                    if(u_type == 0) { // Nebula Core
+                        float r = 3.0 + sin(t) * 0.5;
+                        finalPos = vec3(sin(t + phase)*r, cos(t*0.5 + phase)*r, sin(t*0.2)*r);
+                    } else if(u_type == 1) { // Solar Flare
+                        float r = 2.0 + u_expand * 5.0 * a_attr.x;
+                        finalPos = normalize(position) * r * (0.8 + sin(t*3.0)*0.2);
+                    } else if(u_type == 2) { // Saturn Rings
+                        float inner = 4.0;
+                        float outer = 8.0;
+                        float r = inner + (outer - inner) * (phase/6.28);
+                        finalPos = vec3(cos(t)*r, sin(t)*0.1, sin(t)*r);
+                    } else { // Supernova
+                        float burst = mod(u_time * 0.8, 3.0);
+                        finalPos = normalize(position) * burst * 10.0 * a_attr.x;
+                    }
 
-        onHands(results) {
-            if (!results.multiHandLandmarks.length) return;
-            const lm = results.multiHandLandmarks[0];
-            
-            // 1. Fist Check (Index Tip below Index Base)
-            const isFist = lm[8].y > lm[5].y && lm[12].y > lm[9].y;
-            
-            // 2. Pinch Check (Thumb to Index)
-            const dx = lm[4].x - lm[8].x;
-            const dy = lm[4].y - lm[8].y;
-            const isPinch = Math.sqrt(dx*dx + dy*dy) < 0.05;
+                    finalPos *= (u_expand * 2.0 + 0.4);
+                    finalPos += u_center;
 
-            let currentGesture = "PALM";
-            if (isFist) currentGesture = "FIST";
-            if (isPinch) currentGesture = "PINCH";
+                    vec4 mvPos = modelViewMatrix * vec4(finalPos, 1.0);
+                    gl_PointSize = size * (30.0 / -mvPos.z) * (1.0 + u_expand * 2.0);
+                    vAlpha = smoothstep(3.0, 0.0, length(finalPos - u_center) * 0.1);
+                    gl_Position = projectionMatrix * mvPos;
+                }
+            `,
+            fragmentShader: `
+                uniform vec3 u_color;
+                varying float vAlpha;
+                void main() {
+                    float d = length(gl_PointCoord - 0.5);
+                    if(d > 0.5) discard;
+                    // Planet shading: bright center, soft glow
+                    float strength = pow(1.0 - d*2.0, 2.0);
+                    gl_FragColor = vec4(u_color, strength * vAlpha);
+                }
+            `,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthTest: false
+        });
 
-            if (currentGesture !== this.lastGesture) {
-                this.lastGesture = currentGesture;
-                if(currentGesture === "FIST") this.sys.setExplode(1.0);
-                if(currentGesture === "PALM") this.sys.setExplode(0.0);
-                if(currentGesture === "PINCH") this.sys.triggerScan();
+        const points = new THREE.Points(geo, material);
+        scene.add(points);
+
+        // --- MEDIAPIPE LOGIC ---
+        const videoElement = document.getElementById('input_video');
+        const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.6 });
+
+        hands.onResults((results) => {
+            if (results.multiHandLandmarks && results.multiHandLandmarks[0]) {
+                const landmarks = results.multiHandLandmarks[0];
+                const m = landmarks[9];
+                state.handPos.set((m.x - 0.5) * -40, (m.y - 0.5) * -25, (m.z * -20));
+
+                const thumb = landmarks[4], index = landmarks[8];
+                const dist = Math.hypot(thumb.x - index.x, thumb.y - index.y);
+                state.expansion = THREE.MathUtils.clamp((dist - 0.05) / 0.35, 0, 1);
+                document.getElementById('dist-val').innerText = Math.round(state.expansion * 100) + "%";
+
+                const wrist = landmarks[0];
+                const isFist = Math.hypot(landmarks[12].x - wrist.x, landmarks[12].y - wrist.y) < 0.12;
+                if(isFist && !state.isFist && (Date.now() - state.lastFistTime > 1000)) {
+                    state.templateIdx = (state.templateIdx + 1) % templates.length;
+                    state.lastFistTime = Date.now();
+                    document.getElementById('shape-name').innerText = templates[state.templateIdx].name;
+                }
+                state.isFist = isFist;
             }
+        });
+
+        const cameraFeed = new Camera(videoElement, {
+            onFrame: async () => { await hands.send({image: videoElement}); },
+            width: 1280, height: 720
+        });
+        cameraFeed.start();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            material.uniforms.u_time.value += 0.015;
+            material.uniforms.u_center.value.lerp(state.handPos, 0.08); // Higher lerp = more "weight"
+            material.uniforms.u_expand.value = THREE.MathUtils.lerp(material.uniforms.u_expand.value, state.expansion, 0.1);
+            material.uniforms.u_type.value = state.templateIdx;
+            material.uniforms.u_color.value.lerp(templates[state.templateIdx].color, 0.05);
+            
+            // Subtle camera sway
+            camera.position.x += (state.handPos.x * 0.05 - camera.position.x) * 0.02;
+            camera.lookAt(0,0,0);
+
+            renderer.render(scene, camera);
         }
-    }
+        animate();
 
-    // --- UTILS ---
-    function updateHUD(id, text) {
-        const el = document.getElementById(id === "STATUS" ? "sys-status" : (id === "AUDIO" ? "audio-status" : "vision-status"));
-        if(el) el.textContent = text;
-    }
-
-    // --- BOOT ---
-    const system = new MandalaSystem();
-    const inputs = new SystemInput(system);
-
-    document.getElementById('start-btn').addEventListener('click', (e) => {
-        e.target.style.display = "none";
-        inputs.start();
-    });
-
-    function animate() {
-        requestAnimationFrame(animate);
-        system.update(inputs.getAudioData());
-        system.render();
-    }
-    animate();
-
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
     </script>
 </body>
 </html>
